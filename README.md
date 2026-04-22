@@ -2,7 +2,7 @@
 
 DoseGuard turns antibiotic instructions into a one-page checklist the patient marks dose by dose until the course is finished.
 
-## What this build includes hi hi hi 
+## What this build includes hi hi 
 
 - A static browser-based checklist generator with a preloaded oral antibiotic list
 - Print-first card output with large check boxes, black borders, and no color dependency
