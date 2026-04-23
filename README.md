@@ -1,45 +1,63 @@
-# DoseGuard
+# ShadowFile
 
-DoseGuard turns antibiotic instructions into a one-page checklist the patient marks dose by dose until the course is finished.
+A companion for the people who carry what they see.
 
-## What this build includes 
+ShadowFile is a private, low-affect, evidence-based journaling + voice companion for humanitarian aid workers, UN field staff, NGO frontline teams, community health workers, crisis counsellors, and conflict-zone journalists. Short check-ins, moral-injury framing, validated screeners (C-SSRS, ProQOL-5), crisis-line routing when it matters.
 
-- A static browser-based checklist generator with a preloaded oral antibiotic list
-- Print-first card output with large check boxes, black borders, and no color dependency
-- Hard-coded language toggles for English, Spanish, and Hindi labels
-- An About page that preserves the locked cause-and-evidence framing
-- Distinct citation handling so WHO supports the AMR framing and peer-reviewed sources support the product-evidence bridge
+ShadowFile is a peer companion, not a clinician. It will never replace professional care.
 
-## Product scope
+## Why this exists
 
-DoseGuard is intentionally narrow. It does not claim to solve antimicrobial resistance. It addresses one practical misuse pathway at the dispensing counter by improving instruction clarity and giving the patient an active checkoff card to mark after each dose.
+Humanitarian and UN field staff have PTSD and secondary-traumatic-stress rates 2–3× the general population, and near-zero access to trauma-informed care at the pace and privacy their work requires. Consumer mental-health apps target patients, not the workforce. ShadowFile targets the workforce.
 
-## Local preview
+This maps directly to **SDG 3.4** (mental health and well-being). Reframed for this audience: if the people delivering the SDGs break, the goals do not land.
 
-Because this is a static site, any simple web server will work. For example:
+## Design principles
+
+1. Peer companion, never clinician.
+2. Local-first. Journal entries live only on the device, encrypted at rest.
+3. No account, no ads, no streaks, no push, no gamification.
+4. Safety nets are wired in, never cosmetic: C-SSRS, crisis-line routing, always-visible crisis button.
+5. 2 minutes or less by default.
+6. Three UN working languages at launch: English, French, Spanish.
+7. 18+. Clinical content.
+
+## Architecture (privacy-first)
+
+- **Frontend:** Vite + React + TypeScript + Tailwind, deployed as a PWA.
+- **Storage:** IndexedDB via `idb-keyval`. Journal entries are encrypted at rest with `libsodium` using a key derived from a user passphrase (Argon2id).
+- **AI:** Claude via a Vercel Edge Function proxy (`/api/chat`). The proxy is **zero-log**: request bodies are never written to logs or storage. The Anthropic API key never reaches the browser.
+- **Routing:** Claude Opus 4.7 for moral-injury and moderate/high-risk turns; Claude Haiku 4.5 for routine check-ins. Prompt caching is enabled on the system prompt for cost control.
+- **Safety:** a client-side pre-filter short-circuits acute risk language to the C-SSRS flow before any network call; the model also emits a structured `<RISK>` trailer on every reply that drives post-response routing.
+- **Offline:** service worker pre-caches the shell and all screener flowcharts. Screeners + journaling still work without network.
+
+## Local dev
 
 ```bash
-python3 -m http.server 4173
+npm install
+cp .env.example .env.local   # add your Anthropic API key
+npm run dev
 ```
 
-Then open `http://localhost:4173`.
+Then open `http://localhost:5173`.
 
-## Files
+## Evidence
 
-- `/index.html` contains the main generator
-- `/about.html` contains the locked framing and citation links
-- `/script.js` renders the active checkoff card
-- `/styles.css` handles the app and print layout
-- `/docs/citations.md` stores citation discipline and source notes
+See [`docs/citations.md`](./docs/citations.md). Every framework has a narrow authorised use. Citations never collapse.
 
-## Deployment
+## Scope honesty
 
-This repository is ready for static hosting on Vercel. `vercel.json` keeps routing simple for a static deploy.
+- ShadowFile is a peer reflective companion. It is not a clinician.
+- It is not a diagnostic tool.
+- It is not a workplace monitoring tool. Employers cannot see anything.
+- It does not replace crisis lines, emergency services, or clinical care.
 
-## Citation discipline
+## SDG mapping
 
-Keep these claims separate everywhere:
+- **SDG 3.4** — reduce premature mortality from non-communicable diseases and promote mental health and well-being.
+- **SDG 3.D** — emergency preparedness of the workforce that delivers emergency response.
+- **SDG 8.8** — protect labour rights and promote safe working environments for all workers, including those in precarious employment.
 
-- WHO fact sheet on antimicrobial resistance: cause framing only
-- Peer-reviewed evidence on prescription label misunderstanding: product-evidence bridge
-- Peer-reviewed evidence on pictograms improving comprehension: design choice support
+## License
+
+See `LICENSE` (to be added).

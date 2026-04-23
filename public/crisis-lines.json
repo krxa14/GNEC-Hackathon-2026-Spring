@@ -1,0 +1,15 @@
+{
+  "_note": "Seed set. Day 3 expands to 60+ countries and adds text-line options. Always route to user-configured country first.",
+  "lines": [
+    { "country": "US", "label": "988 Suicide & Crisis Lifeline", "tel": "988", "sms": "988", "url": "https://988lifeline.org" },
+    { "country": "GB", "label": "Samaritans", "tel": "116123", "url": "https://www.samaritans.org" },
+    { "country": "IN", "label": "iCall (India)", "tel": "+919152987821", "url": "https://icallhelpline.org" },
+    { "country": "CA", "label": "Talk Suicide Canada", "tel": "18334564566", "sms": "45645", "url": "https://talksuicide.ca" },
+    { "country": "AU", "label": "Lifeline Australia", "tel": "131114", "url": "https://www.lifeline.org.au" },
+    { "country": "KE", "label": "Befrienders Kenya", "tel": "+254722178177", "url": "https://www.befrienderskenya.org" },
+    { "country": "ZA", "label": "SADAG", "tel": "0800567567", "url": "https://www.sadag.org" },
+    { "country": "FR", "label": "3114 (France)", "tel": "3114", "url": "https://3114.fr" },
+    { "country": "ES", "label": "024 (España)", "tel": "024", "url": "https://www.sanidad.gob.es" },
+    { "country": "MX", "label": "SAPTEL", "tel": "5552598121", "url": "https://www.saptel.org.mx" }
+  ]
+}

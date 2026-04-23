@@ -2,137 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DoseGuard</title>
-    <meta
-      name="description"
-      content="DoseGuard turns antibiotic instructions into a one-page checklist the patient marks dose by dose until the course is finished."
-    />
-    <link rel="stylesheet" href="/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0d10" />
+    <title>ShadowFile</title>
+    <meta name="description" content="A companion for the people who carry what they see." />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div class="page-shell">
-      <header class="site-header">
-        <a class="brand" href="/">
-          <span class="brand-mark">DG</span>
-          <span class="brand-copy">
-            <strong>DoseGuard</strong>
-            <span>One active checkoff card. One workflow.</span>
-          </span>
-        </a>
-        <nav class="site-nav" aria-label="Primary">
-          <a href="/about.html">About</a>
-        </nav>
-      </header>
-
-      <main class="app-layout">
-        <section class="intro-panel">
-          <p class="eyebrow">Built for dispensing counters</p>
-          <h1>
-            Turn antibiotic instructions into a one-page checklist the patient
-            marks dose by dose.
-          </h1>
-          <p class="intro-copy">
-            Enter the antibiotic, doses per day, total days, and language. The
-            patient leaves with an active checkoff card designed to print cleanly
-            on standard clinic printers.
-          </p>
-          <div class="promise-strip" aria-label="Product promises">
-            <span>Runs entirely in your browser</span>
-            <span>No accounts</span>
-            <span>No patient data stored</span>
-          </div>
-
-          <form class="generator-panel" id="doseguard-form">
-            <div class="field-grid">
-              <label class="field">
-                <span>Language</span>
-                <select id="language" name="language">
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="hi">Hindi</option>
-                </select>
-              </label>
-
-              <label class="field">
-                <span>Antibiotic</span>
-                <select id="antibiotic" name="antibiotic">
-                  <option value="Amoxicillin">Amoxicillin</option>
-                  <option value="Amoxicillin/clavulanate">
-                    Amoxicillin/clavulanate
-                  </option>
-                  <option value="Azithromycin">Azithromycin</option>
-                  <option value="Cephalexin">Cephalexin</option>
-                  <option value="Ciprofloxacin">Ciprofloxacin</option>
-                  <option value="Clindamycin">Clindamycin</option>
-                  <option value="Doxycycline">Doxycycline</option>
-                  <option value="Metronidazole">Metronidazole</option>
-                  <option value="Nitrofurantoin">Nitrofurantoin</option>
-                  <option value="Trimethoprim/sulfamethoxazole">
-                    Trimethoprim/sulfamethoxazole
-                  </option>
-                  <option value="custom">Other antibiotic</option>
-                </select>
-              </label>
-
-              <label class="field custom-field is-hidden" id="custom-antibiotic-field">
-                <span>Custom antibiotic name</span>
-                <input
-                  id="custom-antibiotic"
-                  name="customAntibiotic"
-                  type="text"
-                  maxlength="80"
-                  placeholder="Enter antibiotic name"
-                />
-              </label>
-
-              <label class="field">
-                <span>Doses per day</span>
-                <select id="doses-per-day" name="dosesPerDay">
-                  <option value="1">1</option>
-                  <option value="2" selected>2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                </select>
-              </label>
-
-              <label class="field">
-                <span>Total days</span>
-                <input
-                  id="total-days"
-                  name="totalDays"
-                  type="number"
-                  min="1"
-                  max="30"
-                  value="7"
-                />
-              </label>
-            </div>
-
-            <div class="action-row">
-              <button type="submit" class="primary-button">Generate</button>
-              <button type="button" class="secondary-button" id="print-card">
-                Print
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <section class="preview-panel" aria-label="Checklist preview">
-          <div class="preview-header">
-            <div>
-              <p class="preview-label">Preview</p>
-              <h2>Active checkoff card</h2>
-            </div>
-            <p class="preview-note">
-              Large boxes for thick pens. Black-and-white safe.
-            </p>
-          </div>
-          <article class="dose-card" id="dose-card"></article>
-        </section>
-      </main>
-    </div>
-
-    <script src="/script.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
