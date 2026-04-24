@@ -47,7 +47,17 @@ export function Privacy() {
       <section className="space-y-3">
         <h2 className="text-2xl">Source review</h2>
         <p className="text-sm leading-relaxed text-ink-300">
-          Before submission, add the public GitHub repository URL here so judges can inspect the zero-log proxy claim directly in <code>api/chat.ts</code>. The current build is local-only, so that public code link is not available yet.
+          The source code for this project is public at{" "}
+          <a
+            href="https://github.com/krxa14/GNEC-Hackathon-2026-Spring"
+            className="underline underline-offset-2 hover:text-ink-100"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            github.com/krxa14/GNEC-Hackathon-2026-Spring
+          </a>
+          . Judges can inspect the zero-log proxy claim directly in{" "}
+          <code>api/chat.ts</code>.
         </p>
       </section>
     </article>
