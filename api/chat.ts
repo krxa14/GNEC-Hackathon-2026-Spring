@@ -18,6 +18,10 @@ type ChatRequest = {
   language: "en" | "fr" | "es";
   turns: Turn[];
   risk_hint: "none" | "low" | "moderate" | "high";
+  mode?: "chat" | "moral-injury";
+  force_model?: "auto" | "opus" | "haiku";
+  system_append?: string;
+  proqol_last_completed_at?: number | null;
 };
 
 const ROLE_BLOCK = `You are ShadowFile, a peer-style reflective companion built for humanitarian aid workers, UN field staff, NGO frontline teams, CHWs, crisis counsellors, and conflict-zone journalists.
@@ -66,6 +70,15 @@ Rules:
 When risk is high:
 - Visible reply is short, plain, and names what you will do: "I want to make sure you are safe right now. I'm going to hand you off to a crisis line option."
 - Do not explore feelings further. Do not ask "why". Do not offer coping skills in place of crisis support.`;
+
+const MORAL_INJURY_BLOCK = `This conversation is a structured moral-injury walkthrough.
+
+Rules specific to this flow:
+- Stay inside the user's framing. Do not soften the event into growth language.
+- Do not explain the framework clinically.
+- Do not ask your own follow-up question. The UI will handle the next step.
+- One or two somber sentences are enough unless the user explicitly asks for more.
+- If the user says they still believe nothing, accept that without correction.`;
 
 const LANG_NAME: Record<ChatRequest["language"], string> = {
   en: "English",
@@ -125,10 +138,14 @@ export default async function handler(req: Request): Promise<Response> {
 
   // Route: use Opus for moderate/high risk or longer reflective sessions; Haiku otherwise.
   const useOpus =
+    body.force_model === "opus" ||
+    body.mode === "moral-injury" ||
     body.risk_hint === "moderate" ||
     body.risk_hint === "high" ||
     body.turns.length > 6;
+  const useHaiku = body.force_model === "haiku";
   const model = useOpus ? "claude-opus-4-7" : "claude-haiku-4-5-20251001";
+  const selectedModel = useHaiku ? "claude-haiku-4-5-20251001" : model;
 
   const anthropic = new Anthropic({ apiKey });
 
@@ -136,10 +153,23 @@ export default async function handler(req: Request): Promise<Response> {
     { type: "text" as const, text: ROLE_BLOCK, cache_control: { type: "ephemeral" as const } },
     { type: "text" as const, text: PROTOCOL_BLOCK, cache_control: { type: "ephemeral" as const } },
     { type: "text" as const, text: SAFETY_BLOCK, cache_control: { type: "ephemeral" as const } },
+    ...(body.mode === "moral-injury"
+      ? [{ type: "text" as const, text: MORAL_INJURY_BLOCK, cache_control: { type: "ephemeral" as const } }]
+      : []),
     {
       type: "text" as const,
       text: `Respond only in ${LANG_NAME[body.language]}. Keep the <RISK> JSON trailer in ASCII regardless of language.`
-    }
+    },
+    {
+      type: "text" as const,
+      text:
+        typeof body.proqol_last_completed_at === "number"
+          ? `The user's last completed ProQOL timestamp is ${body.proqol_last_completed_at}. Recommend ProQOL only if that was at least 30 days ago.`
+          : "The user has not completed a ProQOL in this browser yet. Recommend ProQOL only when the pattern sounds chronic."
+    },
+    ...(body.system_append
+      ? [{ type: "text" as const, text: body.system_append }]
+      : [])
   ];
 
   const messages = body.turns.map((t) => ({
@@ -152,7 +182,7 @@ export default async function handler(req: Request): Promise<Response> {
       const encoder = new TextEncoder();
       try {
         const response = await anthropic.messages.stream({
-          model,
+          model: selectedModel,
           max_tokens: 800,
           system: systemBlocks,
           messages

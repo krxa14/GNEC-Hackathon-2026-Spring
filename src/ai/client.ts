@@ -5,6 +5,10 @@ export type ChatRequest = {
   language: Language;
   turns: Array<{ role: "user" | "assistant"; text: string }>;
   risk_hint: "none" | "low" | "moderate" | "high";
+  mode?: "chat" | "moral-injury";
+  force_model?: "auto" | "opus" | "haiku";
+  system_append?: string;
+  proqol_last_completed_at?: number | null;
 };
 
 export async function streamChat(

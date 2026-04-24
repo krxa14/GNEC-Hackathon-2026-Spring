@@ -1,14 +1,23 @@
 import { useState } from "react";
 import { Chat } from "./ui/Chat";
 import { CrisisFooter } from "./ui/CrisisFooter";
+import { PassphraseGate } from "./ui/PassphraseGate";
+import { MoralInjury } from "./flows/MoralInjury";
+import { Sleep } from "./flows/Sleep";
+import { ProQOLFlow } from "./screeners/ProQOLFlow";
+import { Evidence } from "./evidence";
+import { Privacy } from "./privacy";
 import { useStore } from "./store";
 import { t } from "./i18n";
 
-type View = "home" | "chat" | "evidence" | "privacy";
+type View = "home" | "chat" | "evidence" | "privacy" | "moralInjury";
 
 export default function App() {
   const [view, setView] = useState<View>("home");
+  const [sleepOpen, setSleepOpen] = useState(false);
+  const [proqolOpen, setProqolOpen] = useState(false);
   const lang = useStore((s) => s.language);
+  const sessionKey = useStore((s) => s.sessionKey);
 
   return (
     <div className="min-h-full flex flex-col">
@@ -36,18 +45,74 @@ export default function App() {
       </header>
 
       <main className="flex-1 max-w-2xl w-full mx-auto px-5 py-8">
-        {view === "home" && <Home onStart={() => setView("chat")} />}
-        {view === "chat" && <Chat />}
-        {view === "evidence" && <Evidence />}
-        {view === "privacy" && <Privacy />}
+        {sessionKey ? (
+          <>
+            {view === "home" && (
+              <Home
+                onStart={() => setView("chat")}
+                onStartMoralInjury={() => setView("moralInjury")}
+                onOpenSleep={() => setSleepOpen(true)}
+                onOpenProQOL={() => setProqolOpen(true)}
+              />
+            )}
+            {view === "chat" && (
+              <Chat
+                onOpenMoralInjury={() => setView("moralInjury")}
+                onOpenSleep={() => setSleepOpen(true)}
+              />
+            )}
+            {view === "evidence" && <Evidence />}
+            {view === "privacy" && <Privacy />}
+            {view === "moralInjury" && (
+              <MoralInjury
+                onBack={() => setView("home")}
+                onRouteToCheckIn={() => setView("chat")}
+              />
+            )}
+          </>
+        ) : (
+          <PassphraseGate />
+        )}
       </main>
 
-      <CrisisFooter />
+      {sessionKey ? (
+        <Sleep
+          open={sleepOpen}
+          onClose={() => setSleepOpen(false)}
+          onRouteToCheckIn={() => {
+            setSleepOpen(false);
+            setView("chat");
+          }}
+        />
+      ) : null}
+      {sessionKey ? (
+        <ProQOLFlow
+          open={proqolOpen}
+          onClose={() => setProqolOpen(false)}
+          onRouteToCheckIn={() => {
+            setProqolOpen(false);
+            setView("chat");
+          }}
+          onCompleted={() => undefined}
+        />
+      ) : null}
+
+      {sessionKey ? <CrisisFooter /> : null}
     </div>
   );
 }
 
-function Home({ onStart }: { onStart: () => void }) {
+function Home({
+  onStart,
+  onStartMoralInjury,
+  onOpenSleep,
+  onOpenProQOL
+}: {
+  onStart: () => void;
+  onStartMoralInjury: () => void;
+  onOpenSleep: () => void;
+  onOpenProQOL: () => void;
+}) {
   const lang = useStore((s) => s.language);
   return (
     <div className="space-y-8">
@@ -67,32 +132,35 @@ function Home({ onStart }: { onStart: () => void }) {
         </button>
       </section>
 
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="panel space-y-4">
+          <h2 className="text-lg">{t(lang, "moralEntry")}</h2>
+          <p className="text-sm text-ink-300">{t(lang, "moralEntryBody")}</p>
+          <button className="btn-ghost" onClick={onStartMoralInjury}>
+            {t(lang, "moralEntryButton")}
+          </button>
+        </div>
+
+        <div className="panel space-y-4">
+          <h2 className="text-lg">{t(lang, "sleepEntry")}</h2>
+          <p className="text-sm text-ink-300">{t(lang, "sleepEntryBody")}</p>
+          <button className="btn-ghost" onClick={onOpenSleep}>
+            {t(lang, "sleepEntryButton")}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel space-y-4">
+        <h2 className="text-lg">{t(lang, "proqolEntry")}</h2>
+        <p className="text-sm text-ink-300">{t(lang, "proqolEntryBody")}</p>
+        <button className="btn-ghost" onClick={onOpenProQOL}>
+          {t(lang, "proqolEntryButton")}
+        </button>
+      </section>
+
       <section className="text-xs text-ink-300 leading-relaxed">
         {t(lang, "notClinician")}
       </section>
     </div>
-  );
-}
-
-function Evidence() {
-  const lang = useStore((s) => s.language);
-  return (
-    <article className="prose prose-invert max-w-none space-y-4">
-      <h1 className="text-2xl font-serif">{t(lang, "navEvidence")}</h1>
-      <p className="text-ink-300">Placeholder. Day 8 will fill each citation mapped to the specific feature it supports.</p>
-    </article>
-  );
-}
-
-function Privacy() {
-  const lang = useStore((s) => s.language);
-  return (
-    <article className="space-y-4">
-      <h1 className="text-2xl font-serif">{t(lang, "navPrivacy")}</h1>
-      <p className="text-ink-300">
-        Placeholder. Day 8 will document the threat model in plain language: local-first encrypted journal,
-        zero-log AI proxy, no account, no analytics.
-      </p>
-    </article>
   );
 }
