@@ -42,6 +42,7 @@ export function Chat({
   const append = useStore((s) => s.append);
   const patchLast = useStore((s) => s.patchLast);
   const setStreaming = useStore((s) => s.setStreaming);
+  const incrementEntry = useStore((s) => s.incrementEntry);
   const [draft, setDraft] = useState("");
   const [isCrisisOpen, setIsCrisisOpen] = useState(false);
   const [isCSSRSOpen, setIsCSSRSOpen] = useState(false);
@@ -175,6 +176,7 @@ export function Chat({
         text: visible,
         risk: nextRisk
       });
+      incrementEntry();
       if (risk?.risk === "high" || risk?.recommend_crisis_line) {
         openCrisisModal(risk?.risk === "high");
       } else if (risk?.recommend_screen === "cssrs") {
