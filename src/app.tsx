@@ -9,96 +9,177 @@ import { Evidence } from "./evidence";
 import { Privacy } from "./privacy";
 import { useStore } from "./store";
 import { t } from "./i18n";
+import type { Language } from "./i18n";
 
 type View = "home" | "chat" | "evidence" | "privacy" | "moralInjury";
+
+const LANG_CYCLE: Language[] = ["en", "fr", "es"];
 
 export default function App() {
   const [view, setView] = useState<View>("home");
   const [sleepOpen, setSleepOpen] = useState(false);
   const [proqolOpen, setProqolOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const lang = useStore((s) => s.language);
+  const setLanguage = useStore((s) => s.setLanguage);
   const sessionKey = useStore((s) => s.sessionKey);
 
+  function navigate(v: View) {
+    setView(v);
+    setMobileNavOpen(false);
+  }
+
+  function cycleLang() {
+    const idx = LANG_CYCLE.indexOf(lang);
+    setLanguage(LANG_CYCLE[(idx + 1) % LANG_CYCLE.length]);
+  }
+
+  const navItems = sessionKey ? (
+    <nav className="flex flex-col gap-[18px] mt-10">
+      <NavItem label="HOME" active={view === "home"} onClick={() => navigate("home")} />
+      <NavItem label="OFFSHIFT CHECK-IN" active={view === "chat"} onClick={() => navigate("chat")} />
+      <NavItem label="MORAL INJURY" active={view === "moralInjury"} onClick={() => navigate("moralInjury")} />
+      <NavItem label="SLEEP" onClick={() => { setSleepOpen(true); setMobileNavOpen(false); }} />
+      <NavItem label="PROQOL SCREEN" onClick={() => { setProqolOpen(true); setMobileNavOpen(false); }} />
+      <div className="w-6 border-t border-ink-700 my-1" />
+      <NavItem label="EVIDENCE" active={view === "evidence"} onClick={() => navigate("evidence")} />
+      <NavItem label="PRIVACY" active={view === "privacy"} onClick={() => navigate("privacy")} />
+    </nav>
+  ) : null;
+
   return (
-    <div className="min-h-full flex flex-col">
-      <header className="border-b border-ink-800 px-5 py-4 flex items-center justify-between">
+    <div className="flex min-h-screen">
+
+      {/* ── Desktop sidebar ── */}
+      <aside className="hidden md:flex fixed left-0 top-0 w-[260px] h-screen flex-col bg-ink-950 border-r border-ink-800 px-8 py-10 z-20">
         <button
-          className="flex items-center gap-3 text-left"
-          onClick={() => setView("home")}
+          className="flex flex-col text-left gap-[5px]"
+          onClick={() => navigate("home")}
         >
-          <span className="h-8 w-8 rounded-lg bg-ink-700 grid place-items-center font-serif text-ink-100">
-            SF
-          </span>
-          <span>
-            <div className="text-sm font-medium tracking-wide">ShadowFile</div>
-            <div className="text-xs text-ink-300">{t(lang, "tagline")}</div>
-          </span>
+          <span className="font-serif text-[22px] text-ink-100 leading-none tracking-tight">SF</span>
+          <span className="text-[9px] tracking-[0.28em] uppercase text-ink-300">ShadowFile</span>
         </button>
-        <nav className="flex gap-4 text-sm text-ink-300">
-          <button onClick={() => setView("evidence")} className="hover:text-ink-100">
-            {t(lang, "navEvidence")}
+
+        {navItems}
+
+        <div className="mt-auto flex flex-col gap-4">
+          {sessionKey ? <CrisisFooter inline /> : null}
+          <button
+            onClick={cycleLang}
+            className="text-left text-[9px] tracking-[0.22em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
+          >
+            {lang.toUpperCase()}
           </button>
-          <button onClick={() => setView("privacy")} className="hover:text-ink-100">
-            {t(lang, "navPrivacy")}
-          </button>
-        </nav>
+        </div>
+      </aside>
+
+      {/* ── Mobile top bar ── */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-30 bg-ink-950 border-b border-ink-800 px-5 py-4 flex items-center justify-between">
+        <button onClick={() => navigate("home")} className="flex items-center gap-3">
+          <span className="font-serif text-lg text-ink-100 leading-none">SF</span>
+          <span className="text-[9px] tracking-[0.25em] uppercase text-ink-300">ShadowFile</span>
+        </button>
+        <button
+          className="text-[10px] tracking-[0.18em] uppercase text-ink-300 hover:text-ink-100 transition-colors"
+          onClick={() => setMobileNavOpen((v) => !v)}
+          aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+        >
+          {mobileNavOpen ? "CLOSE" : "MENU"}
+        </button>
       </header>
 
-      <main className="flex-1 max-w-2xl w-full mx-auto px-5 py-8">
-        {sessionKey ? (
-          <>
-            {view === "home" && (
-              <Home
-                onStart={() => setView("chat")}
-                onStartMoralInjury={() => setView("moralInjury")}
-                onOpenSleep={() => setSleepOpen(true)}
-                onOpenProQOL={() => setProqolOpen(true)}
-              />
-            )}
-            {view === "chat" && (
-              <Chat
-                onOpenMoralInjury={() => setView("moralInjury")}
-                onOpenSleep={() => setSleepOpen(true)}
-              />
-            )}
-            {view === "evidence" && <Evidence />}
-            {view === "privacy" && <Privacy />}
-            {view === "moralInjury" && (
-              <MoralInjury
-                onBack={() => setView("home")}
-                onRouteToCheckIn={() => setView("chat")}
-              />
-            )}
-          </>
+      {/* Mobile nav overlay */}
+      {mobileNavOpen && (
+        <div className="md:hidden fixed inset-0 z-20 bg-ink-950 px-8 pt-20 pb-10 flex flex-col overflow-y-auto">
+          {navItems}
+          <div className="mt-auto flex flex-col gap-4 pt-8">
+            {sessionKey ? <CrisisFooter inline /> : null}
+            <button
+              onClick={cycleLang}
+              className="text-left text-[9px] tracking-[0.22em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
+            >
+              {lang.toUpperCase()}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Right content area ── */}
+      <main className="flex-1 md:ml-[260px] bg-ink-900 min-h-screen pt-[60px] md:pt-0">
+        {view === "chat" && sessionKey ? (
+          <Chat
+            onOpenMoralInjury={() => navigate("moralInjury")}
+            onOpenSleep={() => setSleepOpen(true)}
+          />
         ) : (
-          <PassphraseGate />
+          <div className="max-w-2xl mx-auto px-8 py-14">
+            {sessionKey ? (
+              <>
+                {view === "home" && (
+                  <Home
+                    onStart={() => navigate("chat")}
+                    onStartMoralInjury={() => navigate("moralInjury")}
+                    onOpenSleep={() => setSleepOpen(true)}
+                    onOpenProQOL={() => setProqolOpen(true)}
+                  />
+                )}
+                {view === "evidence" && <Evidence />}
+                {view === "privacy" && <Privacy />}
+                {view === "moralInjury" && (
+                  <MoralInjury
+                    onBack={() => navigate("home")}
+                    onRouteToCheckIn={() => navigate("chat")}
+                  />
+                )}
+              </>
+            ) : (
+              <PassphraseGate />
+            )}
+          </div>
         )}
       </main>
 
-      {sessionKey ? (
-        <Sleep
-          open={sleepOpen}
-          onClose={() => setSleepOpen(false)}
-          onRouteToCheckIn={() => {
-            setSleepOpen(false);
-            setView("chat");
-          }}
-        />
-      ) : null}
-      {sessionKey ? (
-        <ProQOLFlow
-          open={proqolOpen}
-          onClose={() => setProqolOpen(false)}
-          onRouteToCheckIn={() => {
-            setProqolOpen(false);
-            setView("chat");
-          }}
-          onCompleted={() => undefined}
-        />
-      ) : null}
-
+      {/* Mobile sticky crisis footer */}
       {sessionKey ? <CrisisFooter /> : null}
+
+      {/* Flow modals */}
+      {sessionKey ? (
+        <>
+          <Sleep
+            open={sleepOpen}
+            onClose={() => setSleepOpen(false)}
+            onRouteToCheckIn={() => { setSleepOpen(false); navigate("chat"); }}
+          />
+          <ProQOLFlow
+            open={proqolOpen}
+            onClose={() => setProqolOpen(false)}
+            onRouteToCheckIn={() => { setProqolOpen(false); navigate("chat"); }}
+            onCompleted={() => undefined}
+          />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function NavItem({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`text-left text-[11px] tracking-[0.17em] uppercase transition-colors duration-150 ${
+        active ? "text-ink-100" : "text-ink-300 hover:text-ink-100"
+      }`}
+      onClick={onClick}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -106,7 +187,7 @@ function Home({
   onStart,
   onStartMoralInjury,
   onOpenSleep,
-  onOpenProQOL
+  onOpenProQOL,
 }: {
   onStart: () => void;
   onStartMoralInjury: () => void;
@@ -115,52 +196,57 @@ function Home({
 }) {
   const lang = useStore((s) => s.language);
   return (
-    <div className="space-y-8">
-      <section>
-        <p className="text-xs uppercase tracking-[0.2em] text-accent-soft mb-3">
+    <div className="space-y-14">
+      <section className="space-y-4">
+        <p className="text-[10px] tracking-[0.28em] uppercase text-accent-soft">
           {t(lang, "eyebrow")}
         </p>
-        <h1 className="text-3xl md:text-4xl leading-tight">{t(lang, "heroTitle")}</h1>
-        <p className="text-ink-300 mt-4 leading-relaxed">{t(lang, "heroBody")}</p>
+        <h1 className="text-3xl md:text-4xl leading-snug">{t(lang, "heroTitle")}</h1>
+        <p className="text-ink-300 leading-relaxed max-w-lg">{t(lang, "heroBody")}</p>
       </section>
 
-      <section className="panel space-y-4">
-        <h2 className="text-lg">{t(lang, "offshiftTitle")}</h2>
-        <p className="text-sm text-ink-300">{t(lang, "offshiftBody")}</p>
-        <button className="btn-primary" onClick={onStart}>
+      <div className="w-12 border-t border-ink-700" />
+
+      <section className="space-y-3">
+        <p className="text-[10px] tracking-[0.22em] uppercase text-ink-300">{t(lang, "offshiftTitle")}</p>
+        <p className="text-sm text-ink-300 leading-relaxed max-w-sm">{t(lang, "offshiftBody")}</p>
+        <button className="btn-primary mt-1" onClick={onStart}>
           {t(lang, "offshiftCta")}
         </button>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="panel space-y-4">
-          <h2 className="text-lg">{t(lang, "moralEntry")}</h2>
-          <p className="text-sm text-ink-300">{t(lang, "moralEntryBody")}</p>
+      <div className="w-12 border-t border-ink-700" />
+
+      <section className="grid gap-10 md:grid-cols-2">
+        <div className="space-y-3">
+          <p className="text-[10px] tracking-[0.22em] uppercase text-ink-300">{t(lang, "moralEntry")}</p>
+          <p className="text-sm text-ink-300 leading-relaxed">{t(lang, "moralEntryBody")}</p>
           <button className="btn-ghost" onClick={onStartMoralInjury}>
             {t(lang, "moralEntryButton")}
           </button>
         </div>
-
-        <div className="panel space-y-4">
-          <h2 className="text-lg">{t(lang, "sleepEntry")}</h2>
-          <p className="text-sm text-ink-300">{t(lang, "sleepEntryBody")}</p>
+        <div className="space-y-3">
+          <p className="text-[10px] tracking-[0.22em] uppercase text-ink-300">{t(lang, "sleepEntry")}</p>
+          <p className="text-sm text-ink-300 leading-relaxed">{t(lang, "sleepEntryBody")}</p>
           <button className="btn-ghost" onClick={onOpenSleep}>
             {t(lang, "sleepEntryButton")}
           </button>
         </div>
       </section>
 
-      <section className="panel space-y-4">
-        <h2 className="text-lg">{t(lang, "proqolEntry")}</h2>
-        <p className="text-sm text-ink-300">{t(lang, "proqolEntryBody")}</p>
+      <div className="w-12 border-t border-ink-700" />
+
+      <section className="space-y-3">
+        <p className="text-[10px] tracking-[0.22em] uppercase text-ink-300">{t(lang, "proqolEntry")}</p>
+        <p className="text-sm text-ink-300 leading-relaxed max-w-sm">{t(lang, "proqolEntryBody")}</p>
         <button className="btn-ghost" onClick={onOpenProQOL}>
           {t(lang, "proqolEntryButton")}
         </button>
       </section>
 
-      <section className="text-xs text-ink-300 leading-relaxed">
+      <p className="text-[11px] text-ink-600 leading-relaxed pt-4">
         {t(lang, "notClinician")}
-      </section>
+      </p>
     </div>
   );
 }

@@ -5,12 +5,13 @@
 @layer base {
   html, body, #root {
     height: 100%;
+    min-height: 100%;
   }
   html {
     scroll-behavior: smooth;
   }
   body {
-    @apply bg-ink-950 text-ink-100 font-sans antialiased;
+    @apply bg-ink-900 text-ink-100 font-sans antialiased;
     font-feature-settings: "ss01", "cv11";
   }
   h1, h2, h3 {
