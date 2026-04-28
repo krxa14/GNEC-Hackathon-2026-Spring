@@ -109,15 +109,15 @@ export function Garden({ entryCount, streakDays }: { entryCount: number; streakD
         {stage >= 5 && (
           <g>
             {/* Crescent moon top-right */}
-            <circle cx="102" cy="11" r="6" fill="#a8b0bb" opacity="0.55" />
-            <circle cx="105" cy="9" r="5.5" fill="#0c0c10" />
+            <circle cx="102" cy="11" r="6" fill="#9a9088" opacity="0.75" />
+            <circle cx="105" cy="9" r="5.5" fill="#f0ebe5" />
 
             {/* Stars scattered */}
-            <circle cx="18" cy="8" r="0.9" fill="#a8b0bb" opacity="0.7" />
-            <circle cx="35" cy="14" r="0.7" fill="#a8b0bb" opacity="0.5" />
-            <circle cx="72" cy="6" r="0.8" fill="#a8b0bb" opacity="0.6" />
-            <circle cx="50" cy="20" r="0.6" fill="#a8b0bb" opacity="0.45" />
-            <circle cx="85" cy="18" r="0.7" fill="#a8b0bb" opacity="0.5" />
+            <circle cx="18" cy="8" r="0.9" fill="#9a9088" opacity="0.8" />
+            <circle cx="35" cy="14" r="0.7" fill="#9a9088" opacity="0.65" />
+            <circle cx="72" cy="6" r="0.8" fill="#9a9088" opacity="0.7" />
+            <circle cx="50" cy="20" r="0.6" fill="#9a9088" opacity="0.55" />
+            <circle cx="85" cy="18" r="0.7" fill="#9a9088" opacity="0.65" />
 
             {/* Left corner bush */}
             <ellipse cx="10" cy="74" rx="10" ry="5" fill="#1e3a1a" />
