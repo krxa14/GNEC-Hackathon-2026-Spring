@@ -1,15 +1,14 @@
-// Vercel Edge Function — Claude proxy for ShadowFile.
+// Vercel Edge Function — Groq proxy for ShadowFile (free tier).
 //
 // Zero-log discipline:
 // - We never persist request bodies to logs or storage.
 // - Only anonymized counters (IP hash bucket, count) are kept in memory for
 //   abuse rate-limiting, and those evaporate on cold-start.
 // - We do not set cookies. We do not set any persistent headers.
-// - The Anthropic API key lives only in the server env; it never reaches the browser.
+// - The Groq API key lives only in the server env; it never reaches the browser.
 //
-// Streaming: we re-stream Claude deltas as plain text to the client.
-
-import Anthropic from "@anthropic-ai/sdk";
+// Model: llama-3.3-70b-versatile (heavy) / llama-3.1-8b-instant (routine)
+// Streaming: SSE from Groq parsed and re-emitted as plain text.
 
 export const config = { runtime: "edge" };
 
@@ -24,7 +23,13 @@ type ChatRequest = {
   proqol_last_completed_at?: number | null;
 };
 
-const ROLE_BLOCK = `You are ShadowFile, a peer-style reflective companion built for humanitarian aid workers, UN field staff, NGO frontline teams, CHWs, crisis counsellors, and conflict-zone journalists.
+const LANG_NAME: Record<ChatRequest["language"], string> = {
+  en: "English",
+  fr: "French",
+  es: "Spanish"
+};
+
+const BASE_SYSTEM = `You are ShadowFile, a peer-style reflective companion built for humanitarian aid workers, UN field staff, NGO frontline teams, CHWs, crisis counsellors, and conflict-zone journalists.
 
 Voice rules:
 - You are a peer who has been there, never a clinician. Never diagnose. Never prescribe.
@@ -39,10 +44,9 @@ Absolute limits:
 - You do not replace any clinician, therapist, or crisis line.
 - If a user describes active intent, plan, or means for self-harm or harm to others, you stop reflective work and route to crisis resources.
 - You never ask the user to "just breathe" as a first move.
-- You never minimise with "at least...".`;
+- You never minimise with "at least...".
 
-const PROTOCOL_BLOCK = `Evidence-based references you may draw from, without naming them clinically unless asked:
-
+Evidence-based references you may draw from, without naming them clinically unless asked:
 1. WHO Psychological First Aid. Look, listen, link. Ground without instruction.
 2. WHO mhGAP Humanitarian Intervention Guide. Recognise acute stress, grief, depression, suicide risk. Do not diagnose; surface the concern plainly.
 3. Shay and Litz moral-injury frame. Three axes: perpetration, betrayal, witnessing. Name the axis the user appears to describe. Do not re-author their values.
@@ -53,48 +57,37 @@ const PROTOCOL_BLOCK = `Evidence-based references you may draw from, without nam
 Guardrails:
 - Aid workers often carry survivor guilt and helplessness. Normalise these as moral, not pathological, responses.
 - Do not suggest "take time off" or "talk to your manager". Many cannot.
-- Culture and context matter. Do not default to Western therapy idioms.`;
+- Culture and context matter. Do not default to Western therapy idioms.
 
-const SAFETY_BLOCK = `On every reply, after your visible response, emit one trailing line containing exactly one JSON object, prefixed by the token <RISK>. Schema:
-
-<RISK>{"risk":"none|low|moderate|high","recommend_screen":"none|cssrs|proqol","recommend_crisis_line":false|true,"rationale":"one short sentence"}
+SAFETY — REQUIRED ON EVERY REPLY:
+After your visible response, emit one trailing line containing exactly this JSON prefixed by <RISK>:
+<RISK>{"risk":"none|low|moderate|high","recommend_screen":"none|cssrs|proqol","recommend_crisis_line":false,"rationale":"one short sentence"}
 
 Rules:
 - "high" if active suicidal intent, plan, means, or imminent harm.
 - "moderate" if passive ideation, recent self-harm, escalating hopelessness.
 - "low" if chronic stress, burnout, grief, nightmares, moral distress without ideation.
 - "none" otherwise.
-- recommend_screen: "cssrs" for moderate/high. "proqol" only for chronic patterns and only when the user has not completed a ProQOL in 30+ days.
+- recommend_screen: "cssrs" for moderate/high. "proqol" only for chronic patterns.
 - recommend_crisis_line: true for high, or moderate in unsafe environments.
+- When risk is high: visible reply is short and plain, name what you will do, do not explore feelings further.`;
 
-When risk is high:
-- Visible reply is short, plain, and names what you will do: "I want to make sure you are safe right now. I'm going to hand you off to a crisis line option."
-- Do not explore feelings further. Do not ask "why". Do not offer coping skills in place of crisis support.`;
+const MORAL_INJURY_EXTRA = `
 
-const MORAL_INJURY_BLOCK = `This conversation is a structured moral-injury walkthrough.
-
-Rules specific to this flow:
+This conversation is a structured moral-injury walkthrough.
 - Stay inside the user's framing. Do not soften the event into growth language.
 - Do not explain the framework clinically.
 - Do not ask your own follow-up question. The UI will handle the next step.
 - One or two somber sentences are enough unless the user explicitly asks for more.
 - If the user says they still believe nothing, accept that without correction.`;
 
-const LANG_NAME: Record<ChatRequest["language"], string> = {
-  en: "English",
-  fr: "French",
-  es: "Spanish"
-};
-
-// In-memory rate-limit bucket. Evaporates on cold start — acceptable.
-// For persistent rate limit, swap for Upstash Redis later.
+// In-memory rate-limit bucket. Evaporates on cold start.
 const WINDOW_MS = 60_000;
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
 function rateLimitKey(req: Request): string {
   const xff = req.headers.get("x-forwarded-for") ?? "";
-  const first = xff.split(",")[0]?.trim() || "unknown";
-  return first;
+  return xff.split(",")[0]?.trim() || "unknown";
 }
 
 function checkRateLimit(key: string, max: number): boolean {
@@ -114,7 +107,7 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return new Response("Server misconfigured", { status: 500 });
   }
@@ -136,70 +129,98 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("No turns", { status: 400 });
   }
 
-  // Route: use Opus for moderate/high risk or longer reflective sessions; Haiku otherwise.
-  const useOpus =
+  // Model routing: heavy tasks get 70B, routine gets 8B
+  const useHeavy =
     body.force_model === "opus" ||
     body.mode === "moral-injury" ||
     body.risk_hint === "moderate" ||
     body.risk_hint === "high" ||
     body.turns.length > 6;
-  const useHaiku = body.force_model === "haiku";
-  const model = useOpus ? "claude-opus-4-7" : "claude-haiku-4-5-20251001";
-  const selectedModel = useHaiku ? "claude-haiku-4-5-20251001" : model;
+  const model = useHeavy ? "llama-3.3-70b-versatile" : "llama-3.1-8b-instant";
 
-  const anthropic = new Anthropic({ apiKey });
+  // Build system prompt
+  let systemText = BASE_SYSTEM;
+  if (body.mode === "moral-injury") systemText += MORAL_INJURY_EXTRA;
+  systemText += `\n\nRespond only in ${LANG_NAME[body.language] ?? "English"}. Keep the <RISK> JSON trailer in ASCII regardless of language.`;
+  if (typeof body.proqol_last_completed_at === "number") {
+    systemText += `\nThe user's last ProQOL timestamp is ${body.proqol_last_completed_at}. Recommend ProQOL only if that was at least 30 days ago.`;
+  } else {
+    systemText += "\nThe user has not completed a ProQOL in this browser. Recommend only when the pattern sounds chronic.";
+  }
+  if (body.system_append) systemText += `\n${body.system_append}`;
 
-  const systemBlocks = [
-    { type: "text" as const, text: ROLE_BLOCK, cache_control: { type: "ephemeral" as const } },
-    { type: "text" as const, text: PROTOCOL_BLOCK, cache_control: { type: "ephemeral" as const } },
-    { type: "text" as const, text: SAFETY_BLOCK, cache_control: { type: "ephemeral" as const } },
-    ...(body.mode === "moral-injury"
-      ? [{ type: "text" as const, text: MORAL_INJURY_BLOCK, cache_control: { type: "ephemeral" as const } }]
-      : []),
-    {
-      type: "text" as const,
-      text: `Respond only in ${LANG_NAME[body.language]}. Keep the <RISK> JSON trailer in ASCII regardless of language.`
-    },
-    {
-      type: "text" as const,
-      text:
-        typeof body.proqol_last_completed_at === "number"
-          ? `The user's last completed ProQOL timestamp is ${body.proqol_last_completed_at}. Recommend ProQOL only if that was at least 30 days ago.`
-          : "The user has not completed a ProQOL in this browser yet. Recommend ProQOL only when the pattern sounds chronic."
-    },
-    ...(body.system_append
-      ? [{ type: "text" as const, text: body.system_append }]
-      : [])
+  const messages = [
+    { role: "system", content: systemText },
+    ...body.turns.map((t) => ({ role: t.role, content: t.text }))
   ];
 
-  const messages = body.turns.map((t) => ({
-    role: t.role,
-    content: t.text
-  }));
+  // Call Groq (OpenAI-compatible API) with streaming
+  let groqResp: Response;
+  try {
+    groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+        max_tokens: 800,
+        temperature: 0.7
+      }),
+      signal: req.signal
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "fetch failed";
+    return new Response(`Upstream error: ${msg.slice(0, 80)}`, { status: 502 });
+  }
 
+  if (!groqResp.ok || !groqResp.body) {
+    const errText = await groqResp.text().catch(() => "");
+    return new Response(`Groq error ${groqResp.status}: ${errText.slice(0, 120)}`, { status: 502 });
+  }
+
+  // Parse Groq SSE and re-emit as plain text
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
+      const reader = groqResp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
       try {
-        const response = await anthropic.messages.stream({
-          model: selectedModel,
-          max_tokens: 800,
-          system: systemBlocks,
-          messages
-        });
-        for await (const event of response) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text));
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === "data: [DONE]") continue;
+            if (!trimmed.startsWith("data: ")) continue;
+
+            try {
+              const json = JSON.parse(trimmed.slice(6)) as {
+                choices?: { delta?: { content?: string } }[];
+              };
+              const content = json.choices?.[0]?.delta?.content;
+              if (content) {
+                controller.enqueue(encoder.encode(content));
+              }
+            } catch {
+              // malformed SSE chunk — skip
+            }
           }
         }
-        controller.close();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "stream failed";
-        // Do not leak internal details to the client.
         controller.enqueue(encoder.encode(`\n<ERROR>${msg.slice(0, 120)}</ERROR>`));
+      } finally {
         controller.close();
       }
     }
