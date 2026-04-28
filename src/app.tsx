@@ -215,12 +215,22 @@ function Home({
   const lang = useStore((s) => s.language);
   return (
     <div className="space-y-14">
-      <section className="space-y-4">
-        <p className="text-[10px] tracking-[0.28em] uppercase text-accent-soft">
-          {t(lang, "eyebrow")}
-        </p>
-        <h1 className="text-3xl md:text-4xl leading-snug">{t(lang, "heroTitle")}</h1>
-        <p className="text-ink-300 leading-relaxed max-w-lg">{t(lang, "heroBody")}</p>
+      <section className="flex flex-col md:flex-row md:items-end gap-8 md:gap-10">
+        <div className="flex-1 space-y-4">
+          <p className="text-[10px] tracking-[0.28em] uppercase text-accent-soft">
+            {t(lang, "eyebrow")}
+          </p>
+          <h1 className="text-3xl md:text-4xl leading-snug">{t(lang, "heroTitle")}</h1>
+          <p className="text-ink-300 leading-relaxed max-w-lg">{t(lang, "heroBody")}</p>
+        </div>
+        <div className="flex-shrink-0 self-center md:self-end">
+          <img
+            src="/bear.jpeg"
+            alt="A bear with a backpack and map — carrying what they see"
+            className="w-36 md:w-44 rounded-2xl opacity-90"
+            draggable={false}
+          />
+        </div>
       </section>
 
       <div className="w-12 border-t border-ink-700" />
