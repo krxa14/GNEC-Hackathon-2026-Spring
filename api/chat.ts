@@ -1,14 +1,14 @@
-// Vercel Edge Function — Groq proxy for ShadowFile (free tier).
+// Vercel Edge Function — OpenRouter proxy for ShadowFile (free tier).
 //
 // Zero-log discipline:
 // - We never persist request bodies to logs or storage.
 // - Only anonymized counters (IP hash bucket, count) are kept in memory for
 //   abuse rate-limiting, and those evaporate on cold-start.
 // - We do not set cookies. We do not set any persistent headers.
-// - The Groq API key lives only in the server env; it never reaches the browser.
+// - The OpenRouter API key lives only in the server env; it never reaches the browser.
 //
-// Model: llama-3.3-70b-versatile (heavy) / llama-3.1-8b-instant (routine)
-// Streaming: SSE from Groq parsed and re-emitted as plain text.
+// Model: meta-llama/llama-3.1-8b-instruct:free (free tier, no credit card)
+// Streaming: SSE via OpenRouter's OpenAI-compatible endpoint, re-emitted as plain text.
 
 export const config = { runtime: "edge" };
 
@@ -107,7 +107,7 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return new Response("Server misconfigured", { status: 500 });
   }
@@ -129,14 +129,8 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("No turns", { status: 400 });
   }
 
-  // Model routing: heavy tasks get 70B, routine gets 8B
-  const useHeavy =
-    body.force_model === "opus" ||
-    body.mode === "moral-injury" ||
-    body.risk_hint === "moderate" ||
-    body.risk_hint === "high" ||
-    body.turns.length > 6;
-  const model = useHeavy ? "llama-3.3-70b-versatile" : "llama-3.1-8b-instant";
+  // OpenRouter free model — no credit card required
+  const model = "meta-llama/llama-3.1-8b-instruct:free";
 
   // Build system prompt
   let systemText = BASE_SYSTEM;
@@ -154,14 +148,16 @@ export default async function handler(req: Request): Promise<Response> {
     ...body.turns.map((t) => ({ role: t.role, content: t.text }))
   ];
 
-  // Call Groq (OpenAI-compatible API) with streaming
-  let groqResp: Response;
+  // Call OpenRouter (OpenAI-compatible, free models available)
+  let upstreamResp: Response;
   try {
-    groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    upstreamResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://shadowfile-nu.vercel.app",
+        "X-Title": "ShadowFile"
       },
       body: JSON.stringify({
         model,
@@ -177,16 +173,16 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response(`Upstream error: ${msg.slice(0, 80)}`, { status: 502 });
   }
 
-  if (!groqResp.ok || !groqResp.body) {
-    const errText = await groqResp.text().catch(() => "");
-    return new Response(`Groq error ${groqResp.status}: ${errText.slice(0, 120)}`, { status: 502 });
+  if (!upstreamResp.ok || !upstreamResp.body) {
+    const errText = await upstreamResp.text().catch(() => "");
+    return new Response(`OpenRouter error ${upstreamResp.status}: ${errText.slice(0, 120)}`, { status: 502 });
   }
 
-  // Parse Groq SSE and re-emit as plain text
+  // Parse SSE and re-emit as plain text
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
-      const reader = groqResp.body!.getReader();
+      const reader = upstreamResp.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
 
