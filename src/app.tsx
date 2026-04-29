@@ -15,6 +15,7 @@ import { Garden } from "./ui/Garden";
 function GardenWidget() {
   const entryCount = useStore((s) => s.entryCount);
   const streakDays = useStore((s) => s.streakDays);
+  if (entryCount === 0) return null;
   return <Garden entryCount={entryCount} streakDays={streakDays} />;
 }
 
@@ -223,11 +224,12 @@ function Home({
           <h1 className="text-3xl md:text-4xl leading-snug">{t(lang, "heroTitle")}</h1>
           <p className="text-ink-300 leading-relaxed max-w-lg">{t(lang, "heroBody")}</p>
         </div>
-        <div className="flex-shrink-0 self-center md:self-end">
+        <div className="flex-shrink-0 self-center md:self-end w-36 md:w-44 rounded-2xl overflow-hidden opacity-90">
           <img
             src="/bear.jpeg"
             alt="A bear with a backpack and map — carrying what they see"
-            className="w-36 md:w-44 rounded-2xl opacity-90"
+            className="w-full block"
+            style={{ marginTop: "-20%" }}
             draggable={false}
           />
         </div>
