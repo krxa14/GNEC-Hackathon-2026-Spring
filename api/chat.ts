@@ -130,7 +130,7 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   // OpenRouter free model — no credit card required
-  const model = "meta-llama/llama-3.1-8b-instruct:free";
+  const model = "meta-llama/llama-3.3-70b-instruct:free";
 
   // Build system prompt
   let systemText = BASE_SYSTEM;
