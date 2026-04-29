@@ -129,8 +129,13 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("No turns", { status: 400 });
   }
 
-  // OpenRouter free model — no credit card required
-  const model = "meta-llama/llama-3.3-70b-instruct:free";
+  // OpenRouter free models — tried in order until one responds (rate limits on free tier are per-model)
+  const FREE_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemma-3-27b-it:free",
+    "google/gemma-4-31b-it:free",
+    "nousresearch/hermes-3-llama-3.1-405b:free",
+  ];
 
   // Build system prompt
   let systemText = BASE_SYSTEM;
@@ -148,29 +153,41 @@ export default async function handler(req: Request): Promise<Response> {
     ...body.turns.map((t) => ({ role: t.role, content: t.text }))
   ];
 
-  // Call OpenRouter (OpenAI-compatible, free models available)
-  let upstreamResp: Response;
-  try {
-    upstreamResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://shadowfile-nu.vercel.app",
-        "X-Title": "ShadowFile"
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        stream: true,
-        max_tokens: 800,
-        temperature: 0.7
-      }),
-      signal: req.signal
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "fetch failed";
-    return new Response(`Upstream error: ${msg.slice(0, 80)}`, { status: 502 });
+  // Call OpenRouter — try each free model until one accepts (free-tier rate limits are per-model)
+  let upstreamResp: Response | null = null;
+  let lastErr = "";
+  for (const model of FREE_MODELS) {
+    try {
+      const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://shadowfile-nu.vercel.app",
+          "X-Title": "ShadowFile"
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: true,
+          max_tokens: 800,
+          temperature: 0.7
+        }),
+        signal: req.signal
+      });
+      if (resp.status === 429 || resp.status === 503) {
+        lastErr = `${model} → ${resp.status}`;
+        continue; // try next model
+      }
+      upstreamResp = resp;
+      break;
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : "fetch failed";
+    }
+  }
+
+  if (!upstreamResp) {
+    return new Response(`All models rate-limited: ${lastErr.slice(0, 120)}`, { status: 503 });
   }
 
   if (!upstreamResp.ok || !upstreamResp.body) {
