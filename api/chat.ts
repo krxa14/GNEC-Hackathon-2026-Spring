@@ -178,8 +178,10 @@ export default async function handler(req: Request): Promise<Response> {
         }),
         signal: req.signal
       });
-      if (resp.status === 429 || resp.status === 503) {
-        lastErr = `${model} → ${resp.status}`;
+      if (resp.status === 429 || resp.status === 503 || resp.status === 400) {
+        // 429/503 = rate-limited or overloaded; 400 = model-specific format rejection
+        const snippet = await resp.clone().text().catch(() => "");
+        lastErr = `${model} → ${resp.status}: ${snippet.slice(0, 60)}`;
         continue; // try next model
       }
       upstreamResp = resp;
