@@ -218,6 +218,15 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
             </div>
           </div>
         ) : null}
+
+        {/* Error state: show retry button when assistantText looks like an error and not streaming */}
+        {assistantText && !isStreaming && assistantText.toLowerCase().includes("connection") ? (
+          <div className="flex gap-3">
+            <button className="btn-ghost text-sm" onClick={() => { setAssistantText(""); }}>
+              {t(lang, "moralRetry")}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {isComplete ? (

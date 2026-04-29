@@ -105,6 +105,7 @@ export const fr: Translations = {
   moralContinue: "Continuer",
   moralDone: "Terminé",
   moralError: "La connexion a coupé. Vous pouvez réessayer cette étape.",
+  moralRetry: "Réessayer",
   moralComplete:
     "Vous n'avez pas besoin de régler cela ce soir. Si vous voulez, vous pouvez le ramener dans un débrief au lieu de le laisser ici.",
   moralRouteToCheckIn: "Aller au débrief",

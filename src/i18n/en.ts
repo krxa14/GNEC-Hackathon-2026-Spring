@@ -102,6 +102,7 @@ export const en = {
   moralContinue: "Continue",
   moralDone: "Done",
   moralError: "The connection dropped. You can try this step again.",
+  moralRetry: "Try again",
   moralComplete:
     "You do not have to settle this tonight. If you want, you can carry this back into a check-in instead of leaving it here.",
   moralRouteToCheckIn: "Go to check-in",
