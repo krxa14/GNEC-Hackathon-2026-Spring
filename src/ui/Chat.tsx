@@ -185,9 +185,11 @@ export function Chat({
         setIsProQOLOpen(true);
       }
     } catch (err) {
+      const isRateLimit = err instanceof Error && err.message === "rate_limited";
       patchLast({
-        text:
-          "The connection dropped. Your words stayed on this device. You can try again when the network returns."
+        text: isRateLimit
+          ? "The AI service is briefly overloaded — all free models are at capacity. Your words are still here. Try again in a minute."
+          : "The connection dropped. Your words stayed on this device. You can try again when the network returns."
       });
     } finally {
       setStreaming(false);

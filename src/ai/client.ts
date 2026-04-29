@@ -23,6 +23,9 @@ export async function streamChat(
     signal
   });
   if (!res.ok || !res.body) {
+    if (res.status === 429 || res.status === 503) {
+      throw new Error("rate_limited");
+    }
     throw new Error(`Proxy error ${res.status}`);
   }
   const reader = res.body.getReader();

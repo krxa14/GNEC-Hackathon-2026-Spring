@@ -133,6 +133,9 @@ export default async function handler(req: Request): Promise<Response> {
   const FREE_MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemma-3-27b-it:free",
+    "google/gemma-3-12b-it:free",
+    "google/gemma-3-4b-it:free",
+    "meta-llama/llama-3.2-3b-instruct:free",
     "google/gemma-4-31b-it:free",
     "nousresearch/hermes-3-llama-3.1-405b:free",
   ];
