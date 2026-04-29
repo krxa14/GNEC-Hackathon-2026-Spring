@@ -107,9 +107,14 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response("Server misconfigured", { status: 500 });
+    return new Response("Missing OPENROUTER_API_KEY", { status: 500 });
+  }
+  if (apiKey.startsWith("sk-ant-")) {
+    return new Response("Anthropic keys are no longer supported here. Set OPENROUTER_API_KEY.", {
+      status: 500
+    });
   }
 
   const max = Number(process.env.RATE_LIMIT_RPM ?? "20");
@@ -159,6 +164,7 @@ export default async function handler(req: Request): Promise<Response> {
   // Call OpenRouter — try each free model until one accepts (free-tier rate limits are per-model)
   let upstreamResp: Response | null = null;
   let lastErr = "";
+  const appOrigin = req.headers.get("origin") ?? new URL(req.url).origin;
   for (const model of FREE_MODELS) {
     try {
       const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -166,7 +172,7 @@ export default async function handler(req: Request): Promise<Response> {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://shadowfile-nu.vercel.app",
+          "HTTP-Referer": appOrigin,
           "X-Title": "ShadowFile"
         },
         body: JSON.stringify({

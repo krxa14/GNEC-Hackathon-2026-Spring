@@ -185,11 +185,16 @@ export function Chat({
         setIsProQOLOpen(true);
       }
     } catch (err) {
-      const isRateLimit = err instanceof Error && err.message === "rate_limited";
+      const message = err instanceof Error ? err.message : "";
       patchLast({
-        text: isRateLimit
-          ? "The AI service is briefly overloaded — all free models are at capacity. Your words are still here. Try again in a minute."
-          : "The connection dropped. Your words stayed on this device. You can try again when the network returns."
+        text:
+          message === "rate_limited"
+            ? "The AI service is briefly overloaded — all free models are at capacity. Your words are still here. Try again in a minute."
+            : message === "server_misconfigured"
+              ? "This deployment is missing its OpenRouter server key. Set OPENROUTER_API_KEY in Vercel and redeploy."
+              : message === "proxy_failed"
+                ? "The AI service could not be reached from this deployment. Check the Vercel function logs and the OpenRouter key."
+                : "The connection dropped. Your words stayed on this device. You can try again when the network returns."
       });
     } finally {
       setStreaming(false);

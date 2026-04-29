@@ -23,8 +23,15 @@ export async function streamChat(
     signal
   });
   if (!res.ok || !res.body) {
+    const errorText = await res.text().catch(() => "");
     if (res.status === 429 || res.status === 503) {
       throw new Error("rate_limited");
+    }
+    if (res.status === 500 && /OPENROUTER_API_KEY|Anthropic keys are no longer supported/i.test(errorText)) {
+      throw new Error("server_misconfigured");
+    }
+    if (res.status === 401 || res.status === 403 || res.status === 502) {
+      throw new Error("proxy_failed");
     }
     throw new Error(`Proxy error ${res.status}`);
   }

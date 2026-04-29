@@ -26,8 +26,8 @@ This maps directly to **SDG 3.4** (mental health and well-being). Reframed for t
 
 - **Frontend:** Vite + React + TypeScript + Tailwind, deployed as a PWA.
 - **Storage:** IndexedDB via `idb-keyval`. Journal entries are encrypted at rest with `libsodium` using a key derived from a user passphrase (Argon2id).
-- **AI:** Claude via a Vercel Edge Function proxy (`/api/chat`). The proxy is **zero-log**: request bodies are never written to logs or storage. The Anthropic API key never reaches the browser.
-- **Routing:** Claude Opus 4.7 for moral-injury and moderate/high-risk turns; Claude Haiku 4.5 for routine check-ins. Prompt caching is enabled on the system prompt for cost control.
+- **AI:** OpenRouter via a Vercel Edge Function proxy (`/api/chat`). The proxy is **zero-log**: request bodies are never written to logs or storage. The OpenRouter API key never reaches the browser.
+- **Routing:** OpenRouter free-tier models are tried in order until one accepts. The system prompt and client-side safety routing stay local to ShadowFile.
 - **Safety:** a client-side pre-filter short-circuits acute risk language to the C-SSRS flow before any network call; the model also emits a structured `<RISK>` trailer on every reply that drives post-response routing.
 - **Offline:** service worker pre-caches the shell and all screener flowcharts. Screeners + journaling still work without network.
 
@@ -35,7 +35,7 @@ This maps directly to **SDG 3.4** (mental health and well-being). Reframed for t
 
 ```bash
 npm install
-cp .env.example .env.local   # add your Anthropic API key
+cp .env.example .env.local   # add your OpenRouter API key
 npm run dev
 ```
 
