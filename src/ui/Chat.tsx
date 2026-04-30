@@ -7,8 +7,6 @@ import { CSSRSFlow } from "../screeners/CSSRSFlow";
 import { ProQOLFlow } from "../screeners/ProQOLFlow";
 import { CrisisModal } from "./CrisisModal";
 import { getLastProQOLTimestamp } from "../storage/proqol";
-import { isSTTSupported, startListening } from "../voice/stt";
-import { cancel, speak } from "../voice/tts";
 
 function id(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -74,46 +72,14 @@ export function Chat({
   const [isCSSRSOpen, setIsCSSRSOpen] = useState(false);
   const [isProQOLOpen, setIsProQOLOpen] = useState(false);
   const [isUrgentCrisis, setIsUrgentCrisis] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isMuted, setIsMuted] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("shadowfile.voice.muted") === "1";
-  });
   const [lastProQOLCompletedAt, setLastProQOLCompletedAt] = useState<number | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
-  const stopListeningRef = useRef<(() => void) | null>(null);
-  const lastSpokenTurnRef = useRef<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     void getLastProQOLTimestamp().then(setLastProQOLCompletedAt);
   }, []);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("shadowfile.voice.muted", isMuted ? "1" : "0");
-    }
-    if (isMuted) cancel();
-  }, [isMuted]);
-
-  useEffect(() => {
-    if (isStreaming || isMuted || turns.length === 0) return;
-    const lastTurn = turns[turns.length - 1];
-    if (lastTurn.role !== "assistant" || !lastTurn.text.trim()) return;
-    if (lastSpokenTurnRef.current === lastTurn.id) return;
-    lastSpokenTurnRef.current = lastTurn.id;
-    const voiceLang = lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : "en-US";
-    speak(lastTurn.text, voiceLang);
-  }, [isMuted, isStreaming, lang, turns]);
-
-  useEffect(
-    () => () => {
-      stopListeningRef.current?.();
-      cancel();
-    },
-    []
-  );
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -246,31 +212,7 @@ export function Chat({
   }
 
   function resetSession() {
-    cancel();
     resetTurns();
-  }
-
-  function onMic() {
-    if (isListening) {
-      stopListeningRef.current?.();
-      stopListeningRef.current = null;
-      setIsListening(false);
-      return;
-    }
-
-    const voiceLang = lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : "en-US";
-    setIsListening(true);
-    stopListeningRef.current = startListening(
-      (text) => {
-        setDraft(text);
-        void sendText(text);
-      },
-      () => {
-        setIsListening(false);
-        stopListeningRef.current = null;
-      },
-      voiceLang
-    );
   }
 
   return (
@@ -368,28 +310,13 @@ export function Chat({
             className="w-full bg-transparent outline-none resize-none placeholder:text-ink-300"
           />
           <div className="flex justify-between items-center mt-3 text-xs text-ink-300">
-            <div className="flex items-center gap-2">
-              <span>Cmd/Ctrl + Enter</span>
-              {isSTTSupported() ? (
-                <button className="btn-ghost !px-3 !py-2" onClick={onMic} type="button">
-                  {isListening ? t(lang, "voiceListening") : t(lang, "voiceMic")}
-                </button>
-              ) : null}
-              <button
-                className="btn-ghost !px-3 !py-2"
-                onClick={() => setIsMuted((value) => !value)}
-                type="button"
-              >
-                {isMuted ? t(lang, "voiceMuted") : t(lang, "voiceSpeaking")}
-              </button>
-            </div>
+            <span>Cmd/Ctrl + Enter</span>
             <button className="btn-primary" onClick={() => void send()} disabled={isStreaming}>
               {t(lang, "send")}
             </button>
           </div>
         </div>
-        {/* BUILD MARKER — remove after verifying new bundle is loaded */}
-        <div className="text-[9px] text-ink-700 text-right pr-1 pt-1 select-none">build 679d100</div>
+
       </div>
     </div>
   );

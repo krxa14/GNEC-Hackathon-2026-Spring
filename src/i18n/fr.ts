@@ -29,12 +29,6 @@ export const fr: Translations = {
 
   chatPlaceholder: "Qu'aimeriez-vous poser aujourd'hui ?",
   send: "Envoyer",
-  youAreSpeaking: "Écoute…",
-  voiceMic: "Micro",
-  voiceListening: "Écoute…",
-  voiceSpeaking: "Voix active",
-  voiceMuted: "Voix coupée",
-
   crisisCta: "J'ai besoin d'aide maintenant",
   crisisFooter: "En cas de danger immédiat, contactez les urgences ou une ligne de crise locale.",
   crisisModalEyebrow: "Soutien de crise",

@@ -27,12 +27,6 @@ export const en = {
 
   chatPlaceholder: "What do you want to put down today?",
   send: "Send",
-  youAreSpeaking: "Listening…",
-  voiceMic: "Mic",
-  voiceListening: "Listening…",
-  voiceSpeaking: "Voice on",
-  voiceMuted: "Voice off",
-
   crisisCta: "I need help now",
   crisisFooter: "In immediate danger, contact your local emergency or crisis line.",
   crisisModalEyebrow: "Crisis support",

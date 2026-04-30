@@ -29,12 +29,6 @@ export const es: Translations = {
 
   chatPlaceholder: "¿Qué quieres dejar hoy?",
   send: "Enviar",
-  youAreSpeaking: "Escuchando…",
-  voiceMic: "Mic",
-  voiceListening: "Escuchando…",
-  voiceSpeaking: "Voz activa",
-  voiceMuted: "Voz apagada",
-
   crisisCta: "Necesito ayuda ahora",
   crisisFooter: "En peligro inmediato, contacta a emergencias o a una línea de crisis local.",
   crisisModalEyebrow: "Apoyo en crisis",
