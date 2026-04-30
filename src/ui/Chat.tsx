@@ -19,20 +19,27 @@ const RISK_TOKEN = "<RISK>";
 // Deterministic guards — prevent local model from hallucinating context on simple inputs.
 // These return without calling the model at all.
 const GREETING_GUARD: Record<string, string> = {
-  hi: "Hi. I'm here with you. What do you want to put down today?",
-  hello: "Hi. I'm here with you. What do you want to put down today?",
-  hey: "Hi. I'm here with you. What do you want to put down today?",
-  yo: "Hi. I'm here with you. What do you want to put down today?",
-  nothing: "Okay. We can keep this light. What would help right now — clear your head, sleep, or just write one sentence?",
-  "nothing much": "Okay. We can keep this light. What would help right now — clear your head, sleep, or just write one sentence?",
-  "not much": "Okay. We can keep this light. What would help right now — clear your head, sleep, or just write one sentence?",
-  "im good": "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
-  "i'm good": "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
-  "no im good": "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
-  "no i'm good": "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
-  fine: "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
-  ok: "Okay. What brought you here today?",
-  okay: "Okay. What brought you here today?",
+  // Greetings — never reach the model
+  hi:                  "Hi. I'm here with you. What do you want to put down today?",
+  hello:               "Hi. I'm here with you. What do you want to put down today?",
+  hey:                 "Hi. I'm here with you. What do you want to put down today?",
+  yo:                  "Hi. I'm here with you. What do you want to put down today?",
+  "good morning":      "Hi. I'm here with you. What do you want to put down today?",
+  "good afternoon":    "Hi. I'm here with you. What do you want to put down today?",
+  "good evening":      "Hi. I'm here with you. What do you want to put down today?",
+  // Low-content deflection
+  nothing:             "Okay. We can keep this light. What would help right now — clear your head, sleep, or just write one sentence?",
+  "nothing much":      "Okay. We can keep this light. What would help right now — clear your head, sleep, or just write one sentence?",
+  "not much":          "Okay. We can keep this light. What would help right now — clear your head, sleep, or just write one sentence?",
+  // "I'm good" variants
+  "im good":           "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  "i'm good":          "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  "i am good":         "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  "no im good":        "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  "no i'm good":       "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  fine:                "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  ok:                  "Okay. What brought you here today?",
+  okay:                "Okay. What brought you here today?",
 };
 
 function stripStreamingTrailer(buffer: string): string {
@@ -139,17 +146,25 @@ export function Chat({
   async function sendText(rawText?: string) {
     const text = (rawText ?? draft).trim();
     if (!text || isStreaming) return;
+
+    // ── DETERMINISTIC GUARD ──────────────────────────────────────────────────
+    // Must run FIRST — before preFilter, before API, before any state change.
+    // Prevents local models from hallucinating context on low-content inputs.
+    const normalized = text.toLowerCase();
+    const guardResponse = GREETING_GUARD[normalized];
+    if (guardResponse) {
+      console.log("DETERMINISTIC_GUARD_HIT", normalized);
+      setDraft("");
+      append({ id: id(), role: "user",      text,          createdAt: Date.now(), risk: "none" });
+      append({ id: id(), role: "assistant", text: guardResponse, createdAt: Date.now(), risk: "none" });
+      return; // no API call
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     setDraft("");
 
     const preHint = preFilter(text);
     append({ id: id(), role: "user", text, createdAt: Date.now(), risk: preHint });
-
-    // Deterministic guard — bypass model for greetings and low-content inputs.
-    const guardResponse = GREETING_GUARD[text.toLowerCase()];
-    if (guardResponse) {
-      append({ id: id(), role: "assistant", text: guardResponse, createdAt: Date.now(), risk: "none" });
-      return;
-    }
 
     // If pre-filter catches high risk, short-circuit the API and route to the C-SSRS flow.
     if (preHint === "high") {
