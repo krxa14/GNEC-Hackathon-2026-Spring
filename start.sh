@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # ShadowFile — one-command local launcher
-# Run: bash start.sh
+#
+# Usage:
+#   bash start.sh           → fast setup (llama3.2:3b, ~2 GB)
+#   bash start.sh --strong  → better responses (llama3.1:8b, ~5 GB)
 
 set -e
 
@@ -8,94 +11,118 @@ BOLD="\033[1m"
 RED="\033[31m"
 GREEN="\033[32m"
 YELLOW="\033[33m"
+CYAN="\033[36m"
 RESET="\033[0m"
 
 ok()  { echo -e "${GREEN}✓${RESET} $1"; }
 err() { echo -e "${RED}✗ $1${RESET}"; exit 1; }
-msg() { echo -e "${BOLD}→ $1${RESET}"; }
+msg() { echo -e "${CYAN}→${RESET} $1"; }
+warn(){ echo -e "${YELLOW}⚠${RESET} $1"; }
+
+# ── Model selection ───────────────────────────────────────────────────────────
+if [[ "$*" == *"--strong"* ]]; then
+  OLLAMA_MODEL="llama3.1:8b"
+  MODEL_LABEL="llama3.1:8b (stronger, ~5 GB)"
+else
+  OLLAMA_MODEL="llama3.2"
+  MODEL_LABEL="llama3.2:3b (fast, ~2 GB)"
+fi
 
 echo ""
-echo -e "${BOLD}ShadowFile — local setup${RESET}"
-echo "────────────────────────────"
+echo -e "${BOLD}ShadowFile${RESET}"
+echo -e "AI model: ${MODEL_LABEL}"
+echo "────────────────────────────────"
 
 # ── 1. Node.js ────────────────────────────────────────────────────────────────
 if ! command -v node &>/dev/null; then
-  err "Node.js not found. Install it from https://nodejs.org (LTS version) then re-run this script."
+  echo ""
+  err "Node.js not found.
+  Install it from: https://nodejs.org  (choose LTS)
+  Then re-run:  bash start.sh"
 fi
-NODE_VER=$(node -v)
-ok "Node.js $NODE_VER"
+ok "Node.js $(node -v)"
 
 # ── 2. npm install ────────────────────────────────────────────────────────────
 if [ ! -d "node_modules" ]; then
-  msg "Installing dependencies (first run only)..."
+  msg "Installing dependencies (first run, takes ~1 min)..."
   npm install --silent
 fi
-ok "Dependencies installed"
+ok "Dependencies ready"
 
-# ── 3. Ollama (optional but preferred) ───────────────────────────────────────
-USE_OLLAMA=false
-OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.1:8b}"
+# ── 3. Ollama ────────────────────────────────────────────────────────────────
+if ! command -v ollama &>/dev/null; then
+  echo ""
+  warn "Ollama not found."
+  echo ""
+  echo "  Ollama runs the AI locally — no API key, no token limits."
+  echo ""
+  echo "  Install options:"
+  echo "    Mac:   brew install ollama"
+  echo "           or download from https://ollama.com"
+  echo "    Linux: curl -fsSL https://ollama.com/install.sh | sh"
+  echo ""
 
-if command -v ollama &>/dev/null; then
-  USE_OLLAMA=true
-  ok "Ollama found"
-
-  # Pull model if not already downloaded
-  if ! ollama list 2>/dev/null | grep -q "^${OLLAMA_MODEL}"; then
-    msg "Pulling model: ${OLLAMA_MODEL} (one-time download, may take a few minutes)..."
-    ollama pull "$OLLAMA_MODEL"
-  fi
-  ok "Model ready: ${OLLAMA_MODEL}"
-
-  # Start Ollama serve in background if not already running
-  if ! curl -s http://localhost:11434 &>/dev/null; then
-    msg "Starting Ollama..."
-    ollama serve &>/dev/null &
-    sleep 2
-  fi
-  ok "Ollama running at http://localhost:11434"
-else
-  echo -e "${YELLOW}⚠ Ollama not found — falling back to OpenRouter cloud API${RESET}"
-  echo "  To run fully offline: install Ollama from https://ollama.com then re-run."
-fi
-
-# ── 4. .env.local ────────────────────────────────────────────────────────────
-if [ ! -f ".env.local" ]; then
-  cp .env.example .env.local
-
-  if [ "$USE_OLLAMA" = true ]; then
-    # Auto-configure Ollama
-    sed -i.bak "s|^OLLAMA_BASE_URL=.*|OLLAMA_BASE_URL=http://localhost:11434/v1|" .env.local
-    sed -i.bak "s|^#.*OLLAMA_MODEL=.*|OLLAMA_MODEL=${OLLAMA_MODEL}|" .env.local
-    rm -f .env.local.bak
-    ok ".env.local configured for Ollama"
-  else
-    echo ""
-    echo -e "${YELLOW}No .env.local found. OpenRouter key needed for cloud AI.${RESET}"
-    echo "  1. Sign up free at https://openrouter.ai"
-    echo "  2. Create a key (no credit card required)"
-    read -rp "  Paste your OPENROUTER_API_KEY here (or press Enter to skip): " OR_KEY
-    if [ -n "$OR_KEY" ]; then
-      sed -i.bak "s|^OPENROUTER_API_KEY=.*|OPENROUTER_API_KEY=${OR_KEY}|" .env.local
-      rm -f .env.local.bak
-      ok "OpenRouter key saved to .env.local"
+  # Try brew install automatically on Mac
+  if command -v brew &>/dev/null; then
+    read -rp "  Install Ollama now via Homebrew? [y/N] " yn
+    if [[ "$yn" =~ ^[Yy]$ ]]; then
+      brew install ollama
+    else
+      echo "  Opening ollama.com in browser..."
+      open "https://ollama.com" 2>/dev/null || true
+      echo "  After installing Ollama, re-run: bash start.sh"
+      exit 0
     fi
+  else
+    echo "  Opening ollama.com in browser..."
+    xdg-open "https://ollama.com" 2>/dev/null || true
+    echo "  After installing Ollama, re-run: bash start.sh"
+    exit 0
   fi
+fi
+ok "Ollama found"
+
+# ── 4. Start Ollama daemon ────────────────────────────────────────────────────
+if ! curl -s http://localhost:11434 &>/dev/null; then
+  msg "Starting Ollama daemon..."
+  ollama serve &>/dev/null &
+  OLLAMA_PID=$!
+  sleep 3
+fi
+ok "Ollama running"
+
+# ── 5. Pull model ─────────────────────────────────────────────────────────────
+if ! ollama list 2>/dev/null | grep -q "^${OLLAMA_MODEL}"; then
+  msg "Pulling model: ${MODEL_LABEL} — this downloads once and is cached..."
+  ollama pull "$OLLAMA_MODEL"
+fi
+ok "Model ready: ${OLLAMA_MODEL}"
+
+# ── 6. Write .env.local ───────────────────────────────────────────────────────
+if [ ! -f ".env.local" ]; then
+  cat > .env.local << EOF
+# Auto-generated by start.sh
+OLLAMA_BASE_URL=http://localhost:11434/v1
+OLLAMA_MODEL=${OLLAMA_MODEL}
+# Optional: add OPENROUTER_API_KEY for cloud fallback
+EOF
+  ok ".env.local created"
 else
-  ok ".env.local already exists"
+  # Update model if --strong flag changed it
+  sed -i.bak "s|^OLLAMA_MODEL=.*|OLLAMA_MODEL=${OLLAMA_MODEL}|" .env.local
+  sed -i.bak "s|^OLLAMA_BASE_URL=.*|OLLAMA_BASE_URL=http://localhost:11434/v1|" .env.local
+  rm -f .env.local.bak
+  ok ".env.local updated"
 fi
 
-# ── 5. Launch ─────────────────────────────────────────────────────────────────
+# ── 7. Launch ─────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}Starting ShadowFile...${RESET}"
-echo "Opening http://localhost:5173"
-echo "(Press Ctrl+C to stop)"
+echo "  → http://localhost:5173"
+echo "  Press Ctrl+C to stop."
 echo ""
 
-# Open browser after a short delay
-(sleep 2 && \
-  if command -v xdg-open &>/dev/null; then xdg-open http://localhost:5173; \
-  elif command -v open &>/dev/null; then open http://localhost:5173; \
-  fi) &
+# Open browser after Vite is ready
+(sleep 3 && open "http://localhost:5173" 2>/dev/null || xdg-open "http://localhost:5173" 2>/dev/null || true) &
 
 npm run dev

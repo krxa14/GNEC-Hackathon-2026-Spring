@@ -1,10 +1,10 @@
 # ShadowFile
 
-A companion for the people who carry what they see.
+Privacy-first AI decompression for healthcare workers, responders, and caregivers.
 
-## Quick Start
+## One-command local run
 
-ShadowFile runs locally with Ollama by default.
+### Mac / Linux
 
 ```bash
 git clone https://github.com/krxa14/GNEC-Hackathon-2026-Spring.git
@@ -12,15 +12,41 @@ cd GNEC-Hackathon-2026-Spring
 bash start.sh
 ```
 
-Windows: double-click `start.bat` after cloning.
+### Windows
 
-The script installs dependencies, pulls the local model, starts the app, and opens the browser automatically.
+```
+git clone https://github.com/krxa14/GNEC-Hackathon-2026-Spring.git
+cd GNEC-Hackathon-2026-Spring
+```
+Then double-click `start.bat`.
+
+The script will:
+- Check Node.js (guides you to install if missing)
+- Check Ollama (opens download page if missing)
+- Pull the local AI model (once, cached after)
+- Install npm dependencies
+- Start ShadowFile and open your browser
 
 **No API key required. No hosted AI account required. No token limits.**
 
+### Optional: stronger AI model
+
+```bash
+bash start.sh --strong
+```
+
+| | Default | `--strong` |
+|--|--|--|
+| Model | llama3.2:3b | llama3.1:8b |
+| Download | ~2 GB | ~5 GB |
+| Setup speed | Fast | Slower first run |
+| Response quality | Good | Better |
+
+For hackathon judging, default is fine. `--strong` gives noticeably better responses for nuanced mental-health reflection.
+
 Prerequisites (install once):
 - [Node.js LTS](https://nodejs.org)
-- [Ollama](https://ollama.com) — for local AI (no API key, no rate limits, works offline)
+- [Ollama](https://ollama.com) — the script opens the download page automatically if missing
 
 ---
 
@@ -52,29 +78,24 @@ This maps directly to **SDG 3.4** (mental health and well-being). If the people 
 
 ## AI modes
 
-### Primary: Local Ollama (recommended)
+**Priority order:** Ollama local → OpenRouter cloud → show setup message
 
-Runs the model on your machine. No cloud, no API key, no limits.
+### Primary: Local Ollama
 
-```bash
-bash start.sh   # handles everything automatically
-```
+Model runs on your machine. No cloud, no API key, no limits.
+`bash start.sh` handles everything.
 
-Or Docker (no Node.js needed):
+### Optional: Cloud fallback (OpenRouter)
 
-```bash
-docker compose up
-```
-
-### Optional: Hosted AI via OpenRouter
-
-For cloud fallback only. Sign up free at [openrouter.ai](https://openrouter.ai) → create a key → add to `.env.local`:
+Only used if Ollama is not configured. Sign up free at [openrouter.ai](https://openrouter.ai) → create key (no credit card) → add to `.env.local`:
 
 ```
 OPENROUTER_API_KEY=sk-or-...
 ```
 
-The hosted web demo at `https://shadowfile-nu.vercel.app` uses this mode. The full AI-enabled version runs locally.
+### Hosted demo
+
+`https://shadowfile-nu.vercel.app` — demonstrates the interface and all flows. If cloud AI is unavailable, the site shows instructions to run locally. **The full AI-enabled version runs locally.**
 
 ## Architecture (privacy-first)
 
