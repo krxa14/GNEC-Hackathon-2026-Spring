@@ -73,14 +73,14 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
       title: t(lang, "moralNameTitle"),
       prompt: t(lang, "moralNamePrompt"),
       systemAppend:
-        "This is the first step of a moral-injury walkthrough. Reflect in one or two somber sentences. Name one concrete burden in the user's words. Do not ask a follow-up question. The UI will ask the next step."
+        "This is the first step of a moral-injury walkthrough. The user has just described something that happened. Acknowledge only what they actually wrote — do not invent, infer, or add any details, events, people, sounds, or context not present in their message. One or two plain sentences maximum. Do not ask a follow-up question. The UI will advance the step."
     },
     {
       id: "axis",
       title: t(lang, "moralAxisTitle"),
       prompt: `${axisLabel} ${t(lang, "moralAxisPrompt")}`,
       systemAppend:
-        "This is the axis-confirmation step of a moral-injury walkthrough. Respond briefly to whether the framing fits. Do not explain the framework clinically. Do not ask a follow-up question."
+        "This is the axis-confirmation step of a moral-injury walkthrough. Respond briefly to whether the framing fits. Do not invent or add context not written by the user. Do not explain the framework clinically. Do not ask a follow-up question."
     },
     {
       id: "cost",
@@ -110,6 +110,25 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
   async function submit() {
     const answer = draft.trim();
     if (!answer || isStreaming || isComplete) return;
+
+    // Greeting guard — step 1 only. Model must not invent trauma for low-content input.
+    if (step.id === "nameIt") {
+      const normalized = answer.toLowerCase();
+      const greetings = ["hi", "hello", "hey", "yo", "ok", "okay", "nothing", "not much", "fine"];
+      if (greetings.includes(normalized)) {
+        setEntries((current) => [
+          ...current,
+          {
+            step: step.id,
+            prompt: step.prompt,
+            answer,
+            reply: "Take your time. What happened? Describe as much or as little as you want."
+          }
+        ]);
+        setDraft("");
+        return;
+      }
+    }
 
     const preHint = preFilter(answer);
     if (preHint === "high") {
