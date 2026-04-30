@@ -388,6 +388,8 @@ export function Chat({
             </button>
           </div>
         </div>
+        {/* BUILD MARKER — remove after verifying new bundle is loaded */}
+        <div className="text-[9px] text-ink-700 text-right pr-1 pt-1 select-none">build 679d100</div>
       </div>
     </div>
   );
