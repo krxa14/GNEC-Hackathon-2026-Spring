@@ -31,15 +31,46 @@ This maps directly to **SDG 3.4** (mental health and well-being). Reframed for t
 - **Safety:** a client-side pre-filter short-circuits acute risk language to the C-SSRS flow before any network call; the model also emits a structured `<RISK>` trailer on every reply that drives post-response routing.
 - **Offline:** service worker pre-caches the shell and all screener flowcharts. Screeners + journaling still work without network.
 
-## Local dev
+## Running locally
 
 ```bash
+git clone https://github.com/krxa14/GNEC-Hackathon-2026-Spring.git
+cd GNEC-Hackathon-2026-Spring
 npm install
-cp .env.example .env.local   # add your OpenRouter API key
-npm run dev
+cp .env.example .env.local
 ```
 
-Then open `http://localhost:5173`.
+Pick **one** AI backend, then start the app.
+
+### Option A — Ollama (offline, no key, no rate limits)
+
+```bash
+# Install Ollama from https://ollama.com
+ollama pull llama3.2       # ~2 GB one-time download
+ollama serve               # keep this running
+```
+
+In `.env.local`:
+```
+OLLAMA_BASE_URL=http://localhost:11434/v1
+OLLAMA_MODEL=llama3.2
+```
+
+### Option B — OpenRouter (free cloud account)
+
+Sign up free at [openrouter.ai](https://openrouter.ai) → Keys → Create key. No credit card.
+
+In `.env.local`:
+```
+OPENROUTER_API_KEY=sk-or-...
+```
+
+### Start
+
+```bash
+npm run dev
+# → http://localhost:5173
+```
 
 ## Evidence
 

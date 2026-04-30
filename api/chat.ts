@@ -85,6 +85,13 @@ This conversation is a structured moral-injury walkthrough.
 const WINDOW_MS = 60_000;
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
+function parseModelList(raw: string | undefined): string[] {
+  return (raw ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function rateLimitKey(req: Request): string {
   const xff = req.headers.get("x-forwarded-for") ?? "";
   return xff.split(",")[0]?.trim() || "unknown";
@@ -107,11 +114,18 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("Method not allowed", { status: 405 });
   }
 
+  // Local Ollama mode: OLLAMA_BASE_URL overrides all cloud providers.
+  // Set OLLAMA_BASE_URL=http://localhost:11434/v1 in .env.local to run fully offline.
+  const ollamaBase = process.env.OLLAMA_BASE_URL?.replace(/\/$/, "");
+
   const apiKey = process.env.OPENROUTER_API_KEY ?? process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return new Response("Missing OPENROUTER_API_KEY", { status: 500 });
+  if (!ollamaBase && !apiKey) {
+    return new Response(
+      "No AI backend configured. Set OLLAMA_BASE_URL for local use or OPENROUTER_API_KEY for cloud.",
+      { status: 500 }
+    );
   }
-  if (apiKey.startsWith("sk-ant-")) {
+  if (!ollamaBase && apiKey?.startsWith("sk-ant-")) {
     return new Response("Anthropic keys are no longer supported here. Set OPENROUTER_API_KEY.", {
       status: 500
     });
@@ -134,16 +148,26 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("No turns", { status: 400 });
   }
 
-  // OpenRouter free models — tried in order until one responds (rate limits on free tier are per-model)
-  const FREE_MODELS = [
+  // Prefer the lowest-cost paid model first for uptime, then keep a couple of
+  // inexpensive paid fallbacks before the free pool.
+  // Current OpenRouter pricing pages:
+  // - qwen/qwen-2.5-7b-instruct: $0.04/M input, $0.10/M output
+  // - openai/gpt-4.1-nano: $0.10/M input, $0.40/M output
+  // - google/gemini-2.5-flash-lite: $0.10/M input, $0.40/M output
+  const DEFAULT_MODELS = [
+    "qwen/qwen-2.5-7b-instruct",
+    "openai/gpt-4.1-nano",
+    "google/gemini-2.5-flash-lite",
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemma-3-27b-it:free",
     "google/gemma-3-12b-it:free",
     "google/gemma-3-4b-it:free",
     "meta-llama/llama-3.2-3b-instruct:free",
     "google/gemma-4-31b-it:free",
-    "nousresearch/hermes-3-llama-3.1-405b:free",
+    "nousresearch/hermes-3-llama-3.1-405b:free"
   ];
+  const MODELS = parseModelList(process.env.OPENROUTER_MODELS);
+  const candidateModels = MODELS.length > 0 ? MODELS : DEFAULT_MODELS;
 
   // Build system prompt
   let systemText = BASE_SYSTEM;
@@ -161,49 +185,66 @@ export default async function handler(req: Request): Promise<Response> {
     ...body.turns.map((t) => ({ role: t.role, content: t.text }))
   ];
 
-  // Call OpenRouter — try each free model until one accepts (free-tier rate limits are per-model)
+  // ── AI backend selection ──────────────────────────────────────────────────
+  // OLLAMA_BASE_URL → fully local, no key, no rate limits (great for local dev)
+  // OPENROUTER_API_KEY → cloud, tries candidateModels in order until one responds
   let upstreamResp: Response | null = null;
   let lastErr = "";
-  const appOrigin = req.headers.get("origin") ?? new URL(req.url).origin;
-  for (const model of FREE_MODELS) {
+
+  if (ollamaBase) {
+    // Local Ollama — single call, no fallback needed
+    const ollamaModel = process.env.OLLAMA_MODEL ?? "llama3.2";
     try {
-      const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      upstreamResp = await fetch(`${ollamaBase}/chat/completions`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": appOrigin,
-          "X-Title": "ShadowFile"
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          stream: true,
-          max_tokens: 800,
-          temperature: 0.7
-        }),
+        headers: { "Content-Type": "application/json", Authorization: "Bearer ollama" },
+        body: JSON.stringify({ model: ollamaModel, messages, stream: true, max_tokens: 800, temperature: 0.7 }),
         signal: req.signal
       });
-      if (resp.status === 429 || resp.status === 503 || resp.status === 400) {
-        // 429/503 = rate-limited or overloaded; 400 = model-specific format rejection
-        const snippet = await resp.clone().text().catch(() => "");
-        lastErr = `${model} → ${resp.status}: ${snippet.slice(0, 60)}`;
-        continue; // try next model
-      }
-      upstreamResp = resp;
-      break;
     } catch (err) {
       lastErr = err instanceof Error ? err.message : "fetch failed";
     }
-  }
-
-  if (!upstreamResp) {
-    return new Response(`All models rate-limited: ${lastErr.slice(0, 120)}`, { status: 503 });
+    if (!upstreamResp) {
+      return new Response(
+        `Ollama unreachable at ${ollamaBase}. Is Ollama running? (ollama serve). ${lastErr}`,
+        { status: 502 }
+      );
+    }
+  } else {
+    // Cloud — try candidateModels in order, skip rate-limited / format-rejected ones
+    const appOrigin = req.headers.get("origin") ?? new URL(req.url).origin;
+    for (const model of candidateModels) {
+      try {
+        const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": appOrigin,
+            "X-Title": "ShadowFile"
+          },
+          body: JSON.stringify({ model, messages, stream: true, max_tokens: 800, temperature: 0.7 }),
+          signal: req.signal
+        });
+        if (resp.status === 429 || resp.status === 503 || resp.status === 400 || resp.status === 402) {
+          const snippet = await resp.clone().text().catch(() => "");
+          lastErr = `${model} → ${resp.status}: ${snippet.slice(0, 60)}`;
+          continue;
+        }
+        upstreamResp = resp;
+        break;
+      } catch (err) {
+        lastErr = err instanceof Error ? err.message : "fetch failed";
+      }
+    }
+    if (!upstreamResp) {
+      return new Response(`All models rate-limited: ${lastErr.slice(0, 120)}`, { status: 503 });
+    }
   }
 
   if (!upstreamResp.ok || !upstreamResp.body) {
     const errText = await upstreamResp.text().catch(() => "");
-    return new Response(`OpenRouter error ${upstreamResp.status}: ${errText.slice(0, 120)}`, { status: 502 });
+    return new Response(`AI backend error ${upstreamResp.status}: ${errText.slice(0, 120)}`, { status: 502 });
   }
 
   // Parse SSE and re-emit as plain text
