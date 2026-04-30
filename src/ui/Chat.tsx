@@ -248,26 +248,12 @@ export function Chat({
   }
 
   function newSession() {
+    setDraft("");
     const newId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     setSessionId(newId);
     resetTurns();
   }
 
-  function exportSession() {
-    if (turns.length === 0) return;
-    const now = new Date();
-    const header = `ShadowFile session — ${now.toLocaleString()}\n${"─".repeat(40)}\n\n`;
-    const body = turns
-      .map((turn) => `[${turn.role === "user" ? "You" : "ShadowFile"}]\n${turn.text}`)
-      .join("\n\n");
-    const blob = new Blob([header + body], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `shadowfile-${now.toISOString().slice(0, 10)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
 
   return (
     <div className="space-y-5">
@@ -353,8 +339,9 @@ export function Chat({
         className="sticky bottom-0 bg-ink-950 pt-2"
         style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + ${keyboardInset}px)` }}
       >
-        <div className="panel">
-          <div className="mb-3 flex flex-wrap gap-2 items-center">
+        <div className="panel space-y-3">
+          {/* Flow shortcuts */}
+          <div className="flex flex-wrap gap-2">
             <button className="btn-ghost !px-3 !py-2 text-xs" onClick={onOpenMoralInjury}>
               {t(lang, "moralEntry")}
             </button>
@@ -367,40 +354,9 @@ export function Chat({
             <button className="btn-ghost !px-3 !py-2 text-xs" onClick={onOpenLogbook}>
               Logbook
             </button>
-            <div className="ml-auto flex items-center gap-3">
-              {savedLabel ? (
-                <span className="text-[9px] tracking-[0.12em] text-ink-500">{savedLabel}</span>
-              ) : null}
-              {turns.length > 0 ? (
-                <>
-                  <button
-                    className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
-                    onClick={exportSession}
-                    type="button"
-                    title="Download session as .txt"
-                  >
-                    Export
-                  </button>
-                  <button
-                    className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
-                    onClick={endAndSave}
-                    type="button"
-                    title="Save this session and start a new one"
-                  >
-                    End & save
-                  </button>
-                  <button
-                    className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
-                    onClick={newSession}
-                    type="button"
-                    title="Discard and start a new session"
-                  >
-                    New
-                  </button>
-                </>
-              ) : null}
-            </div>
           </div>
+
+          {/* Message input */}
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -414,14 +370,37 @@ export function Chat({
             placeholder={t(lang, "chatPlaceholder")}
             className="w-full bg-transparent outline-none resize-none placeholder:text-ink-300"
           />
-          <div className="flex justify-between items-center mt-3 text-xs text-ink-300">
-            <span>Cmd/Ctrl + Enter</span>
-            <button className="btn-primary" onClick={() => void send()} disabled={isStreaming}>
+
+          {/* Session controls + Send */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              className="btn-ghost !px-4 !py-2 text-sm"
+              onClick={newSession}
+              type="button"
+              title="Clear current chat and start fresh"
+            >
+              New session
+            </button>
+            <button
+              className="btn-ghost !px-4 !py-2 text-sm"
+              onClick={endAndSave}
+              type="button"
+              title="Save this session to Shadow Logbook and clear"
+            >
+              End &amp; save
+            </button>
+            {savedLabel ? (
+              <span className="text-xs text-ink-400 ml-1">{savedLabel}</span>
+            ) : null}
+            <button
+              className="btn-primary ml-auto"
+              onClick={() => void send()}
+              disabled={isStreaming}
+            >
               {t(lang, "send")}
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );
