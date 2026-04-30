@@ -186,15 +186,14 @@ export function Chat({
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
+      const isCloudFailure =
+        message === "rate_limited" ||
+        message === "server_misconfigured" ||
+        message === "proxy_failed";
       patchLast({
-        text:
-          message === "rate_limited"
-            ? "The AI service is briefly overloaded — all free models are at capacity. Your words are still here. Try again in a minute."
-            : message === "server_misconfigured"
-              ? "This deployment is missing its OpenRouter server key. Set OPENROUTER_API_KEY in Vercel and redeploy."
-              : message === "proxy_failed"
-                ? "The AI service could not be reached from this deployment. Check the Vercel function logs and the OpenRouter key."
-                : "The connection dropped. Your words stayed on this device. You can try again when the network returns."
+        text: isCloudFailure
+          ? "ShadowFile's full AI mode is designed to run locally for privacy and reliability.\n\nTo run the complete version:\n\ngit clone https://github.com/krxa14/GNEC-Hackathon-2026-Spring\ncd GNEC-Hackathon-2026-Spring\nbash start.sh\n\nNo API key required. No token limits."
+          : "The connection dropped. Your words stayed on this device. You can try again when the network returns."
       });
     } finally {
       setStreaming(false);

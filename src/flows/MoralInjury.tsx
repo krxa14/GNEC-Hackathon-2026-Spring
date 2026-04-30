@@ -168,8 +168,17 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
         setCrisisUrgent(risk?.risk === "high");
         setCrisisOpen(true);
       }
-    } catch {
-      setAssistantText(t(lang, "moralError"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      const isCloudFailure =
+        message === "rate_limited" ||
+        message === "server_misconfigured" ||
+        message === "proxy_failed";
+      setAssistantText(
+        isCloudFailure
+          ? "ShadowFile's full AI mode runs locally for privacy and reliability.\n\nRun it locally:\n\nbash start.sh\n\nNo API key. No token limits."
+          : t(lang, "moralError")
+      );
     } finally {
       setIsStreaming(false);
     }
