@@ -35,11 +35,12 @@ The script will:
 bash start.sh --strong
 ```
 
-| | Default | `--strong` |
-|--|--|--|
-| Model | llama3.2:3b | llama3.1:8b |
+| Mode | Default | `--strong` |
+|---|---|---|
+| Command | `bash start.sh` | `bash start.sh --strong` |
+| Model | `llama3.2:3b` | `llama3.1:8b` |
 | Download | ~2 GB | ~5 GB |
-| Setup speed | Fast | Slower first run |
+| Setup speed | Faster | Slower first run |
 | Response quality | Good | Better |
 
 For hackathon judging, default is fine. `--strong` gives noticeably better responses for nuanced mental-health reflection.
