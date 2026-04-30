@@ -33,43 +33,46 @@ This maps directly to **SDG 3.4** (mental health and well-being). Reframed for t
 
 ## Running locally
 
+### Quickest path — one script
+
+**Mac / Linux:**
 ```bash
 git clone https://github.com/krxa14/GNEC-Hackathon-2026-Spring.git
 cd GNEC-Hackathon-2026-Spring
-npm install
+bash start.sh
+```
+
+**Windows:**
+```
+git clone https://github.com/krxa14/GNEC-Hackathon-2026-Spring.git
+cd GNEC-Hackathon-2026-Spring
+start.bat   ← double-click this
+```
+
+The script checks for Node.js, installs dependencies, configures Ollama (if installed), and opens the app. First run takes a few minutes if Ollama needs to pull a model (~2 GB).
+
+**Prerequisites (install once):**
+- [Node.js LTS](https://nodejs.org) — required
+- [Ollama](https://ollama.com) — optional, for fully offline AI (no API key needed)
+
+### Alternative — Docker (one command, everything included)
+
+```bash
+git clone https://github.com/krxa14/GNEC-Hackathon-2026-Spring.git
+cd GNEC-Hackathon-2026-Spring
+docker compose up
+```
+
+Pulls Ollama + model automatically. Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+### Alternative — Cloud API (OpenRouter, free account)
+
+If you don't want Ollama, sign up free at [openrouter.ai](https://openrouter.ai) → Keys → Create key (no credit card). Then:
+
+```bash
 cp .env.example .env.local
-```
-
-Pick **one** AI backend, then start the app.
-
-### Option A — Ollama (offline, no key, no rate limits)
-
-```bash
-# Install Ollama from https://ollama.com
-ollama pull llama3.2       # ~2 GB one-time download
-ollama serve               # keep this running
-```
-
-In `.env.local`:
-```
-OLLAMA_BASE_URL=http://localhost:11434/v1
-OLLAMA_MODEL=llama3.2
-```
-
-### Option B — OpenRouter (free cloud account)
-
-Sign up free at [openrouter.ai](https://openrouter.ai) → Keys → Create key. No credit card.
-
-In `.env.local`:
-```
-OPENROUTER_API_KEY=sk-or-...
-```
-
-### Start
-
-```bash
-npm run dev
-# → http://localhost:5173
+# edit .env.local: set OPENROUTER_API_KEY=sk-or-...
+npm install && npm run dev
 ```
 
 ## Evidence
