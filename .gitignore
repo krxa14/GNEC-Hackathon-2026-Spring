@@ -4,9 +4,12 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+.env*.local
 .vercel
 .DS_Store
 *.log
 coverage
 .vite
-.env*.local
+.claude
+*.zip
+*.tar.gz
