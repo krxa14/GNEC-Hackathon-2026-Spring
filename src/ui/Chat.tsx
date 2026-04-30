@@ -16,6 +16,25 @@ function id(): string {
 
 const RISK_TOKEN = "<RISK>";
 
+// Deterministic guards — prevent local model from hallucinating context on simple inputs.
+// These return without calling the model at all.
+const GREETING_GUARD: Record<string, string> = {
+  hi: "Hi. I'm here with you. What do you want to put down today?",
+  hello: "Hi. I'm here with you. What do you want to put down today?",
+  hey: "Hi. I'm here with you. What do you want to put down today?",
+  yo: "Hi. I'm here with you. What do you want to put down today?",
+  nothing: "Okay. We can keep this light. What would help right now — clear your head, sleep, or just write one sentence?",
+  "nothing much": "Okay. We can keep this light. What would help right now — clear your head, sleep, or just write one sentence?",
+  "not much": "Okay. We can keep this light. What would help right now — clear your head, sleep, or just write one sentence?",
+  "im good": "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  "i'm good": "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  "no im good": "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  "no i'm good": "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  fine: "Good. We can leave it there, or you can write one small thing you want to let go of before moving on.",
+  ok: "Okay. What brought you here today?",
+  okay: "Okay. What brought you here today?",
+};
+
 function stripStreamingTrailer(buffer: string): string {
   const marker = buffer.indexOf(RISK_TOKEN);
   if (marker >= 0) return buffer.slice(0, marker);
@@ -43,6 +62,7 @@ export function Chat({
   const patchLast = useStore((s) => s.patchLast);
   const setStreaming = useStore((s) => s.setStreaming);
   const incrementEntry = useStore((s) => s.incrementEntry);
+  const resetTurns = useStore((s) => s.reset);
   const [draft, setDraft] = useState("");
   const [isCrisisOpen, setIsCrisisOpen] = useState(false);
   const [isCSSRSOpen, setIsCSSRSOpen] = useState(false);
@@ -125,6 +145,13 @@ export function Chat({
     const preHint = preFilter(text);
     append({ id: id(), role: "user", text, createdAt: Date.now(), risk: preHint });
 
+    // Deterministic guard — bypass model for greetings and low-content inputs.
+    const guardResponse = GREETING_GUARD[text.toLowerCase()];
+    if (guardResponse) {
+      append({ id: id(), role: "assistant", text: guardResponse, createdAt: Date.now(), risk: "none" });
+      return;
+    }
+
     // If pre-filter catches high risk, short-circuit the API and route to the C-SSRS flow.
     if (preHint === "high") {
       append({
@@ -203,6 +230,15 @@ export function Chat({
 
   async function send() {
     await sendText();
+  }
+
+  function resetSession() {
+    cancel();
+    resetTurns();
+    // Clear garden/session localStorage so the demo starts visually clean.
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("shadowfile.garden.v1");
+    }
   }
 
   function onMic() {
@@ -288,7 +324,7 @@ export function Chat({
         style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + ${keyboardInset}px)` }}
       >
         <div className="panel">
-          <div className="mb-3 flex flex-wrap gap-2">
+          <div className="mb-3 flex flex-wrap gap-2 items-center">
             <button className="btn-ghost !px-3 !py-2 text-xs" onClick={onOpenMoralInjury}>
               {t(lang, "moralEntry")}
             </button>
@@ -298,6 +334,16 @@ export function Chat({
             <button className="btn-ghost !px-3 !py-2 text-xs" onClick={() => setIsProQOLOpen(true)}>
               {t(lang, "proqolEntry")}
             </button>
+            {turns.length > 0 ? (
+              <button
+                className="ml-auto text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
+                onClick={resetSession}
+                type="button"
+                title="Clear this session"
+              >
+                New session
+              </button>
+            ) : null}
           </div>
           <textarea
             value={draft}
