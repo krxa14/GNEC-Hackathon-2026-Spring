@@ -4,6 +4,7 @@ import { streamChat } from "../ai/client";
 import { CrisisModal } from "../ui/CrisisModal";
 import { useStore } from "../store";
 import { t } from "../i18n";
+import { saveLogbookEntry } from "../storage/logbook";
 
 type MoralInjuryProps = {
   onBack: () => void;
@@ -61,6 +62,7 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
   const [crisisOpen, setCrisisOpen] = useState(false);
   const [crisisUrgent, setCrisisUrgent] = useState(false);
   const [assistantText, setAssistantText] = useState("");
+  const [savedToLogbook, setSavedToLogbook] = useState(false);
 
   const initialText = entries[0]?.answer ?? "";
   const axisLabel = useMemo(() => detectAxisLabel(initialText, lang), [initialText, lang]);
@@ -264,6 +266,35 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
             <button className="btn-primary" onClick={onRouteToCheckIn}>
               {t(lang, "moralRouteToCheckIn")}
             </button>
+            {savedToLogbook ? (
+              <span className="text-[11px] tracking-[0.12em] text-ink-500 self-center">
+                Saved to Shadow Logbook.
+              </span>
+            ) : (
+              <button
+                className="btn-ghost"
+                onClick={() => {
+                  const firstAnswer = entries[0]?.answer ?? "";
+                  const preview = firstAnswer.length > 120
+                    ? firstAnswer.slice(0, 117) + "…"
+                    : firstAnswer;
+                  const logTurns = entries.flatMap((entry) => [
+                    { role: "user" as const, text: `${entry.prompt}\n\n${entry.answer}`, createdAt: Date.now() },
+                    { role: "assistant" as const, text: entry.reply, createdAt: Date.now() }
+                  ]);
+                  saveLogbookEntry({
+                    id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+                    savedAt: Date.now(),
+                    sessionType: "Moral Injury Walkthrough",
+                    preview,
+                    turns: logTurns,
+                  });
+                  setSavedToLogbook(true);
+                }}
+              >
+                Save to Logbook
+              </button>
+            )}
             <button className="btn-ghost" onClick={onBack}>
               {t(lang, "moralBackHome")}
             </button>
