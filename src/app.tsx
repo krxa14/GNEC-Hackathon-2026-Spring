@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Chat } from "./ui/Chat";
 import { CrisisFooter } from "./ui/CrisisFooter";
 import { PassphraseGate } from "./ui/PassphraseGate";
+import { Logbook } from "./ui/Logbook";
 import { MoralInjury } from "./flows/MoralInjury";
 import { Sleep } from "./flows/Sleep";
 import { ProQOLFlow } from "./screeners/ProQOLFlow";
@@ -10,7 +11,7 @@ import { Privacy } from "./privacy";
 import { useStore } from "./store";
 import { t } from "./i18n";
 import type { Language } from "./i18n";
-type View = "home" | "chat" | "evidence" | "privacy" | "moralInjury";
+type View = "home" | "chat" | "logbook" | "evidence" | "privacy" | "moralInjury";
 
 const LANG_CYCLE: Language[] = ["en", "fr", "es"];
 
@@ -40,6 +41,7 @@ export default function App() {
       <NavItem label="MORAL INJURY" active={view === "moralInjury"} onClick={() => navigate("moralInjury")} />
       <NavItem label="SLEEP" onClick={() => { setSleepOpen(true); setMobileNavOpen(false); }} />
       <NavItem label="PROQOL SCREEN" onClick={() => { setProqolOpen(true); setMobileNavOpen(false); }} />
+      <NavItem label="SHADOW LOGBOOK" active={view === "logbook"} onClick={() => navigate("logbook")} />
       <div className="w-6 border-t border-ink-700 my-1" />
       <NavItem label="EVIDENCE" active={view === "evidence"} onClick={() => navigate("evidence")} />
       <NavItem label="PRIVACY" active={view === "privacy"} onClick={() => navigate("privacy")} />
@@ -109,6 +111,7 @@ export default function App() {
           <Chat
             onOpenMoralInjury={() => navigate("moralInjury")}
             onOpenSleep={() => setSleepOpen(true)}
+            onOpenLogbook={() => navigate("logbook")}
           />
         ) : (
           <div className="max-w-2xl mx-auto px-8 py-14">
@@ -122,6 +125,7 @@ export default function App() {
                     onOpenProQOL={() => setProqolOpen(true)}
                   />
                 )}
+                {view === "logbook" && <Logbook onBack={() => navigate("home")} />}
                 {view === "evidence" && <Evidence />}
                 {view === "privacy" && <Privacy />}
                 {view === "moralInjury" && (

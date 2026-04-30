@@ -101,6 +101,12 @@ export function ProQOLFlow({
             {!score ? <p className="text-xs uppercase tracking-[0.2em] text-ink-300">{progress}</p> : null}
           </div>
 
+          {!score ? (
+            <p className="text-xs text-ink-400 leading-relaxed border-l-2 border-ink-700 pl-3">
+              This reflection screener draws on the ProQOL framework — a validated tool used to measure compassion satisfaction, burnout, and secondary traumatic stress in humanitarian and caregiving workers. It is not diagnostic. Your answers stay on this device and are never sent anywhere.
+            </p>
+          ) : null}
+
           {score ? (
             <div className="space-y-4">
               <div className="rounded-2xl border border-ink-700 bg-ink-950 px-4 py-4">

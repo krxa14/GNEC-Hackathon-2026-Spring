@@ -1,4 +1,28 @@
+import { useState } from "react";
+import { clearLogbook } from "./storage/logbook";
+
 export function Privacy() {
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
+
+  function handleReset() {
+    if (!confirmReset) {
+      setConfirmReset(true);
+      return;
+    }
+    clearLogbook();
+    if (typeof window !== "undefined") {
+      // Clear all app localStorage keys
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("shadowfile.")) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+    setConfirmReset(false);
+    setResetDone(true);
+  }
+
   return (
     <article className="space-y-8">
       <header className="space-y-3">
@@ -42,6 +66,35 @@ export function Privacy() {
         <p className="text-sm leading-relaxed text-ink-300">
           If someone has access to your unlocked device, they may be able to read what is on screen. If you choose the unencrypted mode, journal content remains readable on this device. If your browser profile is compromised, local storage protections may not help. Privacy here is local-first and narrower than full endpoint security.
         </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-2xl">Reset all local data</h2>
+        <p className="text-sm leading-relaxed text-ink-300">
+          Permanently delete the Shadow Logbook and all app data stored on this device. This cannot be undone.
+        </p>
+        {resetDone ? (
+          <p className="text-sm text-accent-soft">All local data cleared.</p>
+        ) : (
+          <div className="flex items-center gap-3">
+            <button
+              className={confirmReset ? "btn-primary !bg-alert hover:!bg-alert/80" : "btn-ghost"}
+              onClick={handleReset}
+              type="button"
+            >
+              {confirmReset ? "Confirm — delete everything" : "Reset all local data"}
+            </button>
+            {confirmReset ? (
+              <button
+                className="text-xs text-ink-500 hover:text-ink-300 transition-colors"
+                onClick={() => setConfirmReset(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
+        )}
       </section>
 
       <section className="space-y-3">

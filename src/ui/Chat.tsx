@@ -7,6 +7,7 @@ import { CSSRSFlow } from "../screeners/CSSRSFlow";
 import { ProQOLFlow } from "../screeners/ProQOLFlow";
 import { CrisisModal } from "./CrisisModal";
 import { getLastProQOLTimestamp } from "../storage/proqol";
+import { saveLogbookEntry } from "../storage/logbook";
 
 function id(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -53,12 +54,21 @@ function stripStreamingTrailer(buffer: string): string {
   return buffer;
 }
 
+const STARTER_CHIPS = [
+  "I had a difficult shift.",
+  "I keep replaying one moment.",
+  "I feel emotionally drained.",
+  "I just need to unload.",
+];
+
 export function Chat({
   onOpenMoralInjury,
-  onOpenSleep
+  onOpenSleep,
+  onOpenLogbook,
 }: {
   onOpenMoralInjury: () => void;
   onOpenSleep: () => void;
+  onOpenLogbook: () => void;
 }) {
   const lang = useStore((s) => s.language);
   const turns = useStore((s) => s.turns);
@@ -214,20 +224,33 @@ export function Chat({
   }
 
   function endAndSave() {
-    // Current turns already persisted to IndexedDB on every message.
-    // Generate new sessionId so next conversation saves separately.
-    const now = new Date();
-    const label = now.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-      + " · "
-      + now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    setSavedLabel(`Saved ${label}`);
-
+    if (turns.length === 0) {
+      setSavedLabel("Nothing to save.");
+      setTimeout(() => setSavedLabel(null), 3000);
+      return;
+    }
+    const firstUserText = turns.find((t) => t.role === "user")?.text ?? "";
+    const preview = firstUserText.length > 120
+      ? firstUserText.slice(0, 117) + "…"
+      : firstUserText;
+    saveLogbookEntry({
+      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+      savedAt: Date.now(),
+      sessionType: "Offshift Check-In",
+      preview,
+      turns: turns.map((t) => ({ role: t.role, text: t.text, createdAt: t.createdAt })),
+    });
+    setSavedLabel("Saved to Shadow Logbook.");
     const newId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     setSessionId(newId);
     resetTurns();
-
-    // Clear label after 4 s
     setTimeout(() => setSavedLabel(null), 4000);
+  }
+
+  function newSession() {
+    const newId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    setSessionId(newId);
+    resetTurns();
   }
 
   function exportSession() {
@@ -248,6 +271,31 @@ export function Chat({
 
   return (
     <div className="space-y-5">
+      {turns.length === 0 ? (
+        <div className="space-y-4">
+          <div className="panel space-y-2">
+            <p className="text-sm leading-relaxed text-ink-200">
+              A private space to put down what you carried today. Nothing leaves this device.
+            </p>
+            <p className="text-xs text-ink-400">
+              Write freely. The AI companion reflects — it does not diagnose, report, or store your words on any server.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {STARTER_CHIPS.map((chip) => (
+              <button
+                key={chip}
+                className="btn-ghost !px-3 !py-2 text-xs"
+                onClick={() => void sendText(chip)}
+                disabled={isStreaming}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-3 scroll-smooth" role="log" aria-live="polite" aria-relevant="additions text">
         {turns.map((turn) => (
           <div
@@ -316,29 +364,42 @@ export function Chat({
             <button className="btn-ghost !px-3 !py-2 text-xs" onClick={() => setIsProQOLOpen(true)}>
               {t(lang, "proqolEntry")}
             </button>
-            {turns.length > 0 ? (
-              <div className="ml-auto flex items-center gap-3">
-                {savedLabel ? (
-                  <span className="text-[9px] tracking-[0.12em] text-ink-500">{savedLabel}</span>
-                ) : null}
-                <button
-                  className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
-                  onClick={exportSession}
-                  type="button"
-                  title="Download session as .txt"
-                >
-                  Export
-                </button>
-                <button
-                  className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
-                  onClick={endAndSave}
-                  type="button"
-                  title="Save this session and start a new one"
-                >
-                  End & save
-                </button>
-              </div>
-            ) : null}
+            <button className="btn-ghost !px-3 !py-2 text-xs" onClick={onOpenLogbook}>
+              Logbook
+            </button>
+            <div className="ml-auto flex items-center gap-3">
+              {savedLabel ? (
+                <span className="text-[9px] tracking-[0.12em] text-ink-500">{savedLabel}</span>
+              ) : null}
+              {turns.length > 0 ? (
+                <>
+                  <button
+                    className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
+                    onClick={exportSession}
+                    type="button"
+                    title="Download session as .txt"
+                  >
+                    Export
+                  </button>
+                  <button
+                    className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
+                    onClick={endAndSave}
+                    type="button"
+                    title="Save this session and start a new one"
+                  >
+                    End & save
+                  </button>
+                  <button
+                    className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
+                    onClick={newSession}
+                    type="button"
+                    title="Discard and start a new session"
+                  >
+                    New
+                  </button>
+                </>
+              ) : null}
+            </div>
           </div>
           <textarea
             value={draft}
