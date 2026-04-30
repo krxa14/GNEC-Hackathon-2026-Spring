@@ -193,7 +193,9 @@ export default async function handler(req: Request): Promise<Response> {
 
   if (ollamaBase) {
     // Local Ollama — single call, no fallback needed
-    const ollamaModel = process.env.OLLAMA_MODEL ?? "llama3.2";
+    // llama3.1:8b is the minimum recommended for reliable JSON output + instruction following.
+    // Low-spec machines (< 8 GB RAM) can set OLLAMA_MODEL=llama3.2 in .env.local.
+    const ollamaModel = process.env.OLLAMA_MODEL ?? "llama3.1:8b";
     try {
       upstreamResp = await fetch(`${ollamaBase}/chat/completions`, {
         method: "POST",

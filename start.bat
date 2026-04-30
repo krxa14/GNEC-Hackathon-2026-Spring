@@ -31,7 +31,7 @@ echo [OK] Dependencies installed
 
 :: ── 3. Ollama ────────────────────────────────────────────────────────────────
 set USE_OLLAMA=0
-set OLLAMA_MODEL=llama3.2
+set OLLAMA_MODEL=llama3.1:8b
 
 where ollama >nul 2>&1
 if not errorlevel 1 (

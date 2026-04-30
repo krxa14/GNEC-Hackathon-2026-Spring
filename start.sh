@@ -34,7 +34,7 @@ ok "Dependencies installed"
 
 # ── 3. Ollama (optional but preferred) ───────────────────────────────────────
 USE_OLLAMA=false
-OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2}"
+OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.1:8b}"
 
 if command -v ollama &>/dev/null; then
   USE_OLLAMA=true
