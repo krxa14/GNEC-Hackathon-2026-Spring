@@ -67,12 +67,14 @@ export function Chat({
   const patchLast = useStore((s) => s.patchLast);
   const setStreaming = useStore((s) => s.setStreaming);
   const resetTurns = useStore((s) => s.reset);
+  const setSessionId = useStore((s) => s.setSessionId);
   const [draft, setDraft] = useState("");
   const [isCrisisOpen, setIsCrisisOpen] = useState(false);
   const [isCSSRSOpen, setIsCSSRSOpen] = useState(false);
   const [isProQOLOpen, setIsProQOLOpen] = useState(false);
   const [isUrgentCrisis, setIsUrgentCrisis] = useState(false);
   const [lastProQOLCompletedAt, setLastProQOLCompletedAt] = useState<number | null>(null);
+  const [savedLabel, setSavedLabel] = useState<string | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -211,8 +213,37 @@ export function Chat({
     await sendText();
   }
 
-  function resetSession() {
+  function endAndSave() {
+    // Current turns already persisted to IndexedDB on every message.
+    // Generate new sessionId so next conversation saves separately.
+    const now = new Date();
+    const label = now.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+      + " · "
+      + now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    setSavedLabel(`Saved ${label}`);
+
+    const newId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    setSessionId(newId);
     resetTurns();
+
+    // Clear label after 4 s
+    setTimeout(() => setSavedLabel(null), 4000);
+  }
+
+  function exportSession() {
+    if (turns.length === 0) return;
+    const now = new Date();
+    const header = `ShadowFile session — ${now.toLocaleString()}\n${"─".repeat(40)}\n\n`;
+    const body = turns
+      .map((turn) => `[${turn.role === "user" ? "You" : "ShadowFile"}]\n${turn.text}`)
+      .join("\n\n");
+    const blob = new Blob([header + body], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `shadowfile-${now.toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -286,14 +317,27 @@ export function Chat({
               {t(lang, "proqolEntry")}
             </button>
             {turns.length > 0 ? (
-              <button
-                className="ml-auto text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
-                onClick={resetSession}
-                type="button"
-                title="Clear this session"
-              >
-                New session
-              </button>
+              <div className="ml-auto flex items-center gap-3">
+                {savedLabel ? (
+                  <span className="text-[9px] tracking-[0.12em] text-ink-500">{savedLabel}</span>
+                ) : null}
+                <button
+                  className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
+                  onClick={exportSession}
+                  type="button"
+                  title="Download session as .txt"
+                >
+                  Export
+                </button>
+                <button
+                  className="text-[10px] tracking-[0.15em] uppercase text-ink-600 hover:text-ink-300 transition-colors"
+                  onClick={endAndSave}
+                  type="button"
+                  title="Save this session and start a new one"
+                >
+                  End & save
+                </button>
+              </div>
             ) : null}
           </div>
           <textarea

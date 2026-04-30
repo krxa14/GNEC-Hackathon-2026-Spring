@@ -90,6 +90,8 @@ export default defineConfig(({ mode }) => {
         ]
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,json,ico,png,svg,webmanifest}"],
         navigateFallback: "/index.html",
         runtimeCaching: [
