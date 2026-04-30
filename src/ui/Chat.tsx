@@ -61,7 +61,6 @@ export function Chat({
   const append = useStore((s) => s.append);
   const patchLast = useStore((s) => s.patchLast);
   const setStreaming = useStore((s) => s.setStreaming);
-  const incrementEntry = useStore((s) => s.incrementEntry);
   const resetTurns = useStore((s) => s.reset);
   const [draft, setDraft] = useState("");
   const [isCrisisOpen, setIsCrisisOpen] = useState(false);
@@ -203,7 +202,6 @@ export function Chat({
         text: visible,
         risk: nextRisk
       });
-      incrementEntry();
       if (risk?.risk === "high" || risk?.recommend_crisis_line) {
         openCrisisModal(risk?.risk === "high");
       } else if (risk?.recommend_screen === "cssrs") {
@@ -235,10 +233,6 @@ export function Chat({
   function resetSession() {
     cancel();
     resetTurns();
-    // Clear garden/session localStorage so the demo starts visually clean.
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("shadowfile.garden.v1");
-    }
   }
 
   function onMic() {

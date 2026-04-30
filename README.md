@@ -74,7 +74,6 @@ This maps directly to **SDG 3.4** (mental health and well-being). If the people 
 - **Sleep support** — nightly check with grounding
 - **Multilingual** — English, French, Spanish
 - **Encrypted local storage** — journal entries stay on device, encrypted with libsodium
-- **Growing garden** — visual reward that grows with each reflection
 - **Crisis footer** — always-visible crisis line access
 
 ## AI modes

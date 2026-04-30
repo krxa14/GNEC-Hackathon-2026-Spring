@@ -10,15 +10,6 @@ import { Privacy } from "./privacy";
 import { useStore } from "./store";
 import { t } from "./i18n";
 import type { Language } from "./i18n";
-import { Garden } from "./ui/Garden";
-
-function GardenWidget() {
-  const entryCount = useStore((s) => s.entryCount);
-  const streakDays = useStore((s) => s.streakDays);
-  if (entryCount === 0) return null;
-  return <Garden entryCount={entryCount} streakDays={streakDays} />;
-}
-
 type View = "home" | "chat" | "evidence" | "privacy" | "moralInjury";
 
 const LANG_CYCLE: Language[] = ["en", "fr", "es"];
@@ -70,12 +61,6 @@ export default function App() {
 
         {navItems}
 
-        {sessionKey ? (
-          <div className="mt-8 border-t border-ink-800 pt-6">
-            <GardenWidget />
-          </div>
-        ) : null}
-
         <div className="mt-auto flex flex-col gap-4">
           {sessionKey ? <CrisisFooter inline /> : null}
           <button
@@ -106,11 +91,6 @@ export default function App() {
       {mobileNavOpen && (
         <div className="md:hidden fixed inset-0 z-20 bg-ink-950 px-8 pt-20 pb-10 flex flex-col overflow-y-auto">
           {navItems}
-          {sessionKey ? (
-            <div className="mt-8 border-t border-ink-800 pt-6">
-              <GardenWidget />
-            </div>
-          ) : null}
           <div className="mt-auto flex flex-col gap-4 pt-8">
             {sessionKey ? <CrisisFooter inline /> : null}
             <button
