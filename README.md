@@ -21,13 +21,13 @@ cd GNEC-Hackathon-2026-Spring
 Then double-click `start.bat`.
 
 The script will:
-- Check Node.js (guides you to install if missing)
-- Check Ollama (opens download page if missing)
-- Pull the local AI model (once, cached after)
+- Check that Node.js is installed (and guide you to install it if missing)
+- Check that Ollama is installed (and open the download page if missing)
+- Pull the local AI model (once; cached after the first run)
 - Install npm dependencies
-- Start ShadowFile and open your browser
+- Start ShadowFile and open it in your browser
 
-**No API key required. No hosted AI account required. No token limits.**
+**No API key, hosted AI account, or token limits required.**
 
 ### Optional: stronger AI model
 
@@ -43,11 +43,11 @@ bash start.sh --strong
 | Setup speed | Faster | Slower first run |
 | Response quality | Good | Better |
 
-For hackathon judging, default is fine. `--strong` gives noticeably better responses for nuanced mental-health reflection.
+For hackathon judging, the default is fine. `--strong` gives noticeably better responses on nuanced mental-health reflection.
 
 Prerequisites (install once):
 - [Node.js LTS](https://nodejs.org)
-- [Ollama](https://ollama.com) — the script opens the download page automatically if missing
+- [Ollama](https://ollama.com) — the start script opens the download page automatically if it is missing
 
 ---
 
@@ -55,9 +55,9 @@ Prerequisites (install once):
 
 ShadowFile is a privacy-first emotional decompression tool for humanitarian aid workers, UN field staff, NGO frontline teams, community health workers, crisis counsellors, and conflict-zone journalists.
 
-Unlike a hosted AI chatbot, ShadowFile is designed to run locally with Ollama. Sensitive reflections do not need to be sent to a cloud AI provider. The app works without API keys, token limits, or rate-limit failures.
+Unlike a hosted AI chatbot, ShadowFile is designed to run locally with Ollama. Sensitive reflections never need to leave your device. The app works without API keys, token limits, or rate-limit failures.
 
-ShadowFile is a peer companion, not a clinician. It will never replace professional care.
+ShadowFile is a peer companion, not a clinician. It does not replace professional care.
 
 ## Why this exists
 
@@ -93,9 +93,11 @@ Only used if Ollama is not configured. Sign up free at [openrouter.ai](https://o
 OPENROUTER_API_KEY=sk-or-...
 ```
 
-### Hosted demo
+### Hosted preview vs local AI mode
 
-`https://shadowfile-nu.vercel.app` — demonstrates the interface and all flows. If cloud AI is unavailable, the site shows instructions to run locally. **The full AI-enabled version runs locally.**
+`https://shadowfile-nu.vercel.app` is a hosted **preview** of the interface and all guided flows. It is intended for quick judging and demos. If cloud AI is not configured or unavailable, the preview shows instructions to run ShadowFile locally instead.
+
+**The full AI-enabled, fully private experience runs locally** via `bash start.sh`. In local mode, all reflections stay on your machine and the model runs through Ollama.
 
 ## Architecture (privacy-first)
 
