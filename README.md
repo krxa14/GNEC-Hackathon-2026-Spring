@@ -119,6 +119,14 @@ OPENROUTER_API_KEY=sk-or-...
 
 See [`docs/citations.md`](./docs/citations.md).
 
+## Supporting documentation
+
+- [`docs/demo.md`](./docs/demo.md) — demo script, local run steps, and recording checklist
+- [`docs/troubleshooting.md`](./docs/troubleshooting.md) — fixes for Ollama, stale PWA cache, port 5173, and Node setup
+- [`docs/privacy-notes.md`](./docs/privacy-notes.md) — what is stored, where, and how to reset local data
+- [`docs/screenshots.md`](./docs/screenshots.md) — required screenshots and capture conventions
+- [`docs/devpost.md`](./docs/devpost.md) — Devpost submission copy
+
 ## Scope honesty
 
 - ShadowFile is a peer reflective companion. It is not a clinician.
