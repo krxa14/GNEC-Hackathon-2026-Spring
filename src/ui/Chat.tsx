@@ -231,8 +231,9 @@ export function Chat({
         message === "proxy_failed";
       patchLast({
         text: isCloudFailure
-          ? "ShadowFile's full AI mode is designed to run locally for privacy and reliability.\n\nTo run the complete version:\n\ngit clone https://github.com/krxa14/GNEC-Hackathon-2026-Spring\ncd GNEC-Hackathon-2026-Spring\nbash start.sh\n\nNo API key required. No token limits."
-          : "The connection dropped. Your words stayed on this device. You can try again when the network returns."
+          ? "The AI is unavailable on this preview. Tap retry, or run ShadowFile locally for the full private experience (bash start.sh)."
+          : "Connection dropped. Your words are here. Tap retry when ready.",
+        isError: true
       });
     } finally {
       setStreaming(false);
@@ -277,7 +278,8 @@ export function Chat({
 
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col">
+      <div className="max-w-2xl mx-auto w-full px-4 md:px-8 py-6 space-y-5">
       {turns.length === 0 ? (
         <div className="space-y-4">
           <div className="panel space-y-2">
@@ -303,19 +305,21 @@ export function Chat({
         </div>
       ) : null}
 
-      <div className="space-y-3 scroll-smooth" role="log" aria-live="polite" aria-relevant="additions text">
+      <div className="space-y-3 scroll-smooth pb-4" role="log" aria-live="polite" aria-relevant="additions text">
         {turns.map((turn) => (
           <div
             key={turn.id}
             className={
-              turn.role === "user"
+              turn.isError
+                ? "panel border-ink-700 !bg-ink-800"
+                : turn.role === "user"
                 ? "panel !bg-ink-800"
                 : "panel"
             }
           >
             <div className="text-[10px] uppercase tracking-[0.2em] text-ink-300 mb-2">
               {turn.role === "user" ? "You" : "ShadowFile"}
-              {turn.risk && turn.risk !== "none" ? (
+              {turn.risk && turn.risk !== "none" && !turn.isError ? (
                 <span
                   className={
                     "ml-2 " +
@@ -330,7 +334,21 @@ export function Chat({
                 </span>
               ) : null}
             </div>
-            <div className="whitespace-pre-wrap leading-relaxed">{turn.text || "…"}</div>
+            <div className="whitespace-pre-wrap leading-relaxed text-ink-300">
+              {turn.text || "…"}
+            </div>
+            {turn.isError ? (
+              <button
+                className="mt-3 text-xs text-accent hover:text-accent/80 underline underline-offset-2"
+                onClick={() => {
+                  const lastUserTurn = [...turns].reverse().find((t) => t.role === "user" && !t.isError);
+                  if (lastUserTurn) void sendText(lastUserTurn.text);
+                }}
+                disabled={isStreaming}
+              >
+                Retry
+              </button>
+            ) : null}
           </div>
         ))}
         <div ref={endRef} />
@@ -355,73 +373,82 @@ export function Chat({
           setIsUrgentCrisis(false);
         }}
       />
+      </div>{/* end max-w-2xl content area */}
 
       <div
-        className="sticky bottom-0 bg-ink-950 pt-2"
+        className="sticky bottom-0 z-10 bg-ink-950 pt-2"
         style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + ${keyboardInset}px)` }}
       >
+        <div className="max-w-2xl mx-auto px-4 md:px-8">
         <div className="panel space-y-3">
-          {/* Flow shortcuts */}
-          <div className="flex flex-wrap gap-2">
-            <button className="btn-ghost !px-3 !py-2 text-xs" onClick={onOpenMoralInjury}>
-              {t(lang, "moralEntry")}
-            </button>
-            <button className="btn-ghost !px-3 !py-2 text-xs" onClick={onOpenSleep}>
-              {t(lang, "sleepEntry")}
-            </button>
-            <button className="btn-ghost !px-3 !py-2 text-xs" onClick={() => setIsProQOLOpen(true)}>
-              {t(lang, "proqolEntry")}
-            </button>
-            <button className="btn-ghost !px-3 !py-2 text-xs" onClick={onOpenLogbook}>
-              Logbook
-            </button>
-          </div>
-
-          {/* Message input */}
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                void send();
-              }
-            }}
-            rows={3}
-            placeholder={t(lang, "chatPlaceholder")}
-            className="w-full bg-transparent outline-none resize-none placeholder:text-ink-300"
-          />
-
-          {/* Session controls + Send */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Session controls — always visible first */}
+          <div className="flex flex-wrap items-center gap-2 border-b border-ink-700 pb-3">
             <button
-              className="btn-ghost !px-4 !py-2 text-sm"
+              className="btn-ghost !px-3 !py-1.5 text-xs"
               onClick={newSession}
               type="button"
-              title="Clear current chat and start fresh"
             >
               New session
             </button>
             <button
-              className="btn !px-4 !py-2 text-sm bg-ink-900 border border-accent/70 text-accent hover:border-accent hover:bg-ink-800"
+              className="btn !px-3 !py-1.5 text-xs bg-ink-900 border border-accent/70 text-accent hover:border-accent hover:bg-ink-800"
               onClick={endAndSave}
               type="button"
-              title="Save this session to Shadow Logbook and clear"
             >
               End &amp; save
+            </button>
+            <button
+              className="btn !px-3 !py-1.5 text-xs bg-ink-900 border border-ink-600 text-ink-200 hover:border-ink-400 hover:bg-ink-800"
+              onClick={onOpenLogbook}
+              type="button"
+            >
+              Logbook
             </button>
             {savedLabel ? (
               <span className="text-xs text-accent ml-1">{savedLabel}</span>
             ) : null}
-            <button
-              className="btn-primary ml-auto"
-              onClick={() => void send()}
-              disabled={isStreaming}
-            >
-              {t(lang, "send")}
+          </div>
+
+          {/* Flow shortcuts */}
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-ghost !px-3 !py-1.5 text-xs" onClick={onOpenMoralInjury}>
+              {t(lang, "moralEntry")}
+            </button>
+            <button className="btn-ghost !px-3 !py-1.5 text-xs" onClick={onOpenSleep}>
+              {t(lang, "sleepEntry")}
+            </button>
+            <button className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => setIsProQOLOpen(true)}>
+              {t(lang, "proqolEntry")}
             </button>
           </div>
+
+          {/* Message input + Send */}
+          <div className="space-y-2">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
+              rows={3}
+              placeholder={t(lang, "chatPlaceholder")}
+              className="w-full bg-transparent outline-none resize-none placeholder:text-ink-300"
+            />
+            <div className="flex justify-end">
+              <button
+                className="btn-primary"
+                onClick={() => void send()}
+                disabled={isStreaming}
+              >
+                {t(lang, "send")}
+              </button>
+            </div>
+          </div>
         </div>
+        </div>{/* end max-w-2xl sticky inner */}
       </div>
     </div>
   );

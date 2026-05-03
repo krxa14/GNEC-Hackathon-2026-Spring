@@ -8,6 +8,7 @@ export type Turn = {
   text: string;
   createdAt: number;
   risk?: "none" | "low" | "moderate" | "high";
+  isError?: boolean;
 };
 
 type State = {

@@ -49,6 +49,10 @@ export async function streamChat(
 }
 
 export function serializeHistory(turns: Turn[]): ChatRequest["turns"] {
-  // Keep the last 6 turns to keep prompt short and cache hits high.
-  return turns.slice(-6).map((t) => ({ role: t.role, text: t.text }));
+  // Exclude error turns — they're UI messages, not real conversation content.
+  // Keep the last 6 real turns to keep prompt short and cache hits high.
+  return turns
+    .filter((t) => !t.isError)
+    .slice(-6)
+    .map((t) => ({ role: t.role, text: t.text }));
 }
