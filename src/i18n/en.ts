@@ -95,7 +95,7 @@ export const en = {
   moralPlaceholder: "Write as much or as little as you want.",
   moralContinue: "Continue",
   moralDone: "Done",
-  moralError: "The connection dropped. You can try this step again.",
+  moralError: "That step paused. You can continue when you're ready.",
   moralRetry: "Try again",
   moralComplete:
     "You do not have to settle this tonight. If you want, you can carry this back into a check-in instead of leaving it here.",

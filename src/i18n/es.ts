@@ -98,7 +98,7 @@ export const es: Translations = {
   moralPlaceholder: "Escribe tanto o tan poco como quieras.",
   moralContinue: "Continuar",
   moralDone: "Listo",
-  moralError: "La conexión se cayó. Puedes volver a intentar este paso.",
+  moralError: "Ese paso se pausó. Puedes continuar cuando quieras.",
   moralRetry: "Intentar de nuevo",
   moralComplete:
     "No tienes que resolver esto esta noche. Si quieres, puedes llevarlo a un cierre de turno en vez de dejarlo aquí.",

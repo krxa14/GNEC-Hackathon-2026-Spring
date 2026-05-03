@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useStore } from "../store";
+import { useStore, type Turn } from "../store";
 import { streamChat, serializeHistory } from "../ai/client";
 import { parseRiskTrailer, preFilter, escalate } from "../ai/safety";
 import { t } from "../i18n";
@@ -61,6 +61,24 @@ const STARTER_CHIPS = [
   "I just need to unload.",
 ];
 
+const SESSION_TYPE = "Offshift Check-In";
+const FALLBACK_TEXT = "Noted. I saved this session. You can return to it later from the logbook.";
+
+function getFirstUserMemo(turns: Turn[]): string {
+  return turns.find((turn) => turn.role === "user")?.text.trim() ?? "";
+}
+
+function getPreview(text: string): string {
+  return text.length > 120 ? text.slice(0, 117) + "…" : text;
+}
+
+function getSessionSaveKey(sessionType: string, firstUserMemo: string, savedAt: number): string | null {
+  const normalizedMemo = firstUserMemo.trim().toLowerCase();
+  if (!normalizedMemo) return null;
+  const minuteBucket = Math.floor(savedAt / 60000);
+  return `${sessionType}|${normalizedMemo}|${minuteBucket}`;
+}
+
 export function Chat({
   onOpenMoralInjury,
   onOpenSleep,
@@ -85,9 +103,12 @@ export function Chat({
   const [isUrgentCrisis, setIsUrgentCrisis] = useState(false);
   const [lastProQOLCompletedAt, setLastProQOLCompletedAt] = useState<number | null>(null);
   const [savedLabel, setSavedLabel] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const sendingRef = useRef(false);
+  const savedSessionKeysRef = useRef(new Set<string>());
 
   useEffect(() => {
     void getLastProQOLTimestamp().then(setLastProQOLCompletedAt);
@@ -143,60 +164,122 @@ export function Chat({
     setIsCrisisOpen(true);
   }
 
-  async function sendText(rawText?: string) {
+  function saveVisibleSessionOnce(sessionTurns: Turn[] = useStore.getState().turns): boolean {
+    if (!sessionTurns.some((turn) => turn.role === "user")) return false;
+
+    const firstUserMemo = getFirstUserMemo(sessionTurns);
+    if (!firstUserMemo) return false;
+
+    const savedAt = Date.now();
+    const saveKey = getSessionSaveKey(SESSION_TYPE, firstUserMemo, savedAt);
+    if (saveKey && savedSessionKeysRef.current.has(saveKey)) {
+      return true;
+    }
+
+    saveLogbookEntry({
+      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+      savedAt,
+      sessionType: SESSION_TYPE,
+      preview: getPreview(firstUserMemo),
+      turns: sessionTurns.map((turn) => ({
+        role: turn.role,
+        text: turn.text,
+        createdAt: turn.createdAt,
+      })),
+    });
+
+    if (saveKey) {
+      savedSessionKeysRef.current.add(saveKey);
+    }
+
+    return true;
+  }
+
+  function ensureFallbackAssistantTurn(): Turn[] {
+    const currentTurns = useStore.getState().turns;
+    const lastTurn = currentTurns[currentTurns.length - 1];
+
+    if (lastTurn?.role === "assistant") {
+      if (lastTurn.text === FALLBACK_TEXT) {
+        return currentTurns;
+      }
+
+      patchLast({
+        text: FALLBACK_TEXT,
+        isError: true,
+        risk: "none",
+      });
+      return useStore.getState().turns;
+    }
+
+    append({
+      id: id(),
+      role: "assistant",
+      text: FALLBACK_TEXT,
+      createdAt: Date.now(),
+      isError: true,
+      risk: "none",
+    });
+    return useStore.getState().turns;
+  }
+
+  function autosaveFallbackSession() {
+    const nextTurns = ensureFallbackAssistantTurn();
+    if (saveVisibleSessionOnce(nextTurns)) {
+      setSavedLabel("Saved to Shadow Logbook.");
+      setTimeout(() => setSavedLabel(null), 4000);
+    }
+  }
+
+  async function sendMessage(rawText?: string) {
+    if (sendingRef.current || isStreaming) return;
+
     const text = (rawText ?? draft).trim();
-    if (!text || isStreaming) return;
+    if (!text) return;
+
+    sendingRef.current = true;
+    setSending(true);
+    setDraft("");
 
     // ── DETERMINISTIC GUARD ──────────────────────────────────────────────────
     // Must run FIRST — before preFilter, before API, before any state change.
     // Prevents local models from hallucinating context on low-content inputs.
-    const normalized = text.toLowerCase();
-    const guardResponse = GREETING_GUARD[normalized];
-    if (guardResponse) {
-      console.log("DETERMINISTIC_GUARD_HIT", normalized);
-      setDraft("");
-      append({ id: id(), role: "user",      text,          createdAt: Date.now(), risk: "none" });
-      append({ id: id(), role: "assistant", text: guardResponse, createdAt: Date.now(), risk: "none" });
-      return; // no API call
-    }
-    // ────────────────────────────────────────────────────────────────────────
-
-    setDraft("");
-
-    const preHint = preFilter(text);
-    append({ id: id(), role: "user", text, createdAt: Date.now(), risk: preHint });
-
-    // If pre-filter catches high risk, short-circuit the API and route to the C-SSRS flow.
-    if (preHint === "high") {
-      append({
-        id: id(),
-        role: "assistant",
-        text:
-          "I want to make sure you are safe right now. I am going to stop reflecting and offer you a crisis screen and line.",
-        createdAt: Date.now(),
-        risk: "high"
-      });
-      setIsCSSRSOpen(true);
-      return;
-    }
-
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      append({
-        id: id(),
-        role: "assistant",
-        text: "Noted. I saved this session. You can return to it later from the logbook.",
-        createdAt: Date.now(),
-        isError: true
-      });
-      return;
-    }
-
-    const history = serializeHistory(useStore.getState().turns);
-    append({ id: id(), role: "assistant", text: "", createdAt: Date.now() });
-    setStreaming(true);
-    abortRef.current = new AbortController();
-
     try {
+      const normalized = text.toLowerCase();
+      const guardResponse = GREETING_GUARD[normalized];
+      if (guardResponse) {
+        console.log("DETERMINISTIC_GUARD_HIT", normalized);
+        append({ id: id(), role: "user", text, createdAt: Date.now(), risk: "none" });
+        append({ id: id(), role: "assistant", text: guardResponse, createdAt: Date.now(), risk: "none" });
+        return;
+      }
+
+      const preHint = preFilter(text);
+      append({ id: id(), role: "user", text, createdAt: Date.now(), risk: preHint });
+
+      if (preHint === "high") {
+        append({
+          id: id(),
+          role: "assistant",
+          text:
+            "I want to make sure you are safe right now. I am going to stop reflecting and offer you a crisis screen and line.",
+          createdAt: Date.now(),
+          risk: "high"
+        });
+        setIsCSSRSOpen(true);
+        return;
+      }
+
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        autosaveFallbackSession();
+        return;
+      }
+
+      const history = serializeHistory(useStore.getState().turns);
+      append({ id: id(), role: "assistant", text: "", createdAt: Date.now() });
+      setStreaming(true);
+      abortRef.current = new AbortController();
+
       let streamed = "";
       const full = await streamChat(
         {
@@ -224,53 +307,25 @@ export function Chat({
       } else if (risk?.recommend_screen === "proqol") {
         setIsProQOLOpen(true);
       }
-    } catch (err) {
-      const FALLBACK = "Noted. I saved this session. You can return to it later from the logbook.";
-      patchLast({ text: FALLBACK, isError: true });
-
-      // Auto-save user content immediately when AI fails — demo works without API.
-      const currentTurns = useStore.getState().turns;
-      const saveable = currentTurns.filter((t) => !t.isError);
-      if (saveable.some((t) => t.role === "user")) {
-        const firstUserText = saveable.find((t) => t.role === "user")?.text ?? "";
-        const preview = firstUserText.length > 120 ? firstUserText.slice(0, 117) + "…" : firstUserText;
-        saveLogbookEntry({
-          id: Math.random().toString(36).slice(2) + Date.now().toString(36),
-          savedAt: Date.now(),
-          sessionType: "Offshift Check-In",
-          preview,
-          turns: saveable.map((t) => ({ role: t.role, text: t.text, createdAt: t.createdAt }))
-        });
-      }
+    } catch {
+      autosaveFallbackSession();
     } finally {
       setStreaming(false);
       abortRef.current = null;
+      sendingRef.current = false;
+      setSending(false);
     }
   }
 
-  async function send() {
-    await sendText();
-  }
-
   function endAndSave() {
-    const saveable = turns.filter((t) => !t.isError);
-    if (!saveable.some((t) => t.role === "user")) {
+    if (!saveVisibleSessionOnce(turns)) {
       setSavedLabel("Nothing to save.");
       setTimeout(() => setSavedLabel(null), 3000);
       return;
     }
-    const firstUserText = saveable.find((t) => t.role === "user")?.text ?? "";
-    const preview = firstUserText.length > 120
-      ? firstUserText.slice(0, 117) + "…"
-      : firstUserText;
-    saveLogbookEntry({
-      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
-      savedAt: Date.now(),
-      sessionType: "Offshift Check-In",
-      preview,
-      turns: saveable.map((t) => ({ role: t.role, text: t.text, createdAt: t.createdAt })),
-    });
+
     setSavedLabel("Saved to Shadow Logbook.");
+    setDraft("");
     const newId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     setSessionId(newId);
     resetTurns();
@@ -303,8 +358,8 @@ export function Chat({
               <button
                 key={chip}
                 className="btn-ghost !px-3 !py-2 text-xs"
-                onClick={() => void sendText(chip)}
-                disabled={isStreaming}
+                onClick={() => void sendMessage(chip)}
+                disabled={sending || sendingRef.current || isStreaming}
               >
                 {chip}
               </button>
@@ -345,18 +400,6 @@ export function Chat({
             <div className="whitespace-pre-wrap leading-relaxed text-ink-300">
               {turn.text || "…"}
             </div>
-            {turn.isError ? (
-              <button
-                className="mt-3 text-xs text-accent hover:text-accent/80 underline underline-offset-2"
-                onClick={() => {
-                  const lastUserTurn = [...turns].reverse().find((t) => t.role === "user" && !t.isError);
-                  if (lastUserTurn) void sendText(lastUserTurn.text);
-                }}
-                disabled={isStreaming}
-              >
-                Retry
-              </button>
-            ) : null}
           </div>
         ))}
         <div ref={endRef} />
@@ -395,6 +438,7 @@ export function Chat({
               className="btn-ghost !px-3 !py-1.5 text-xs"
               onClick={newSession}
               type="button"
+              disabled={sending || sendingRef.current || isStreaming}
             >
               New session
             </button>
@@ -402,6 +446,7 @@ export function Chat({
               className="btn !px-3 !py-1.5 text-xs bg-ink-900 border border-accent/70 text-accent hover:border-accent hover:bg-ink-800"
               onClick={endAndSave}
               type="button"
+              disabled={sending || sendingRef.current || isStreaming}
             >
               End &amp; save
             </button>
@@ -436,9 +481,10 @@ export function Chat({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  void send();
+                  if (sendingRef.current || sending) return;
+                  void sendMessage();
                 }
               }}
               rows={3}
@@ -448,10 +494,10 @@ export function Chat({
             <div className="flex justify-end">
               <button
                 className="btn-primary"
-                onClick={() => void send()}
-                disabled={isStreaming}
+                onClick={() => void sendMessage()}
+                disabled={sending || sendingRef.current || !draft.trim()}
               >
-                {t(lang, "send")}
+                {sending ? "Sending" : "Send"}
               </button>
             </div>
           </div>

@@ -271,13 +271,6 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
           </div>
         ) : null}
 
-        {assistantText && !isStreaming && assistantText === "Noted. I saved this session. You can return to it later from the logbook." ? (
-          <div className="flex gap-3">
-            <button className="btn-ghost text-sm" onClick={() => { setAssistantText(""); void submit(); }}>
-              {t(lang, "moralRetry")}
-            </button>
-          </div>
-        ) : null}
       </div>
 
       {isComplete ? (
