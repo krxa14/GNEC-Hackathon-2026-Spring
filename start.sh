@@ -115,14 +115,19 @@ else
   ok ".env.local updated"
 fi
 
-# ── 7. Launch ─────────────────────────────────────────────────────────────────
+# ── 7. Build ──────────────────────────────────────────────────────────────────
+msg "Building ShadowFile..."
+npm run build --silent
+ok "Build complete"
+
+# ── 8. Launch ─────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}Starting ShadowFile...${RESET}"
 echo "  → http://localhost:5173"
 echo "  Press Ctrl+C to stop."
 echo ""
 
-# Open browser after Vite is ready
-(sleep 3 && open "http://localhost:5173" 2>/dev/null || xdg-open "http://localhost:5173" 2>/dev/null || true) &
+# Open browser after server is ready
+(sleep 2 && open "http://localhost:5173" 2>/dev/null || xdg-open "http://localhost:5173" 2>/dev/null || true) &
 
-npm run dev
+npm run preview
