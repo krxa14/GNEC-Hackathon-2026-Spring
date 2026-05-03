@@ -139,6 +139,9 @@ export const es: Translations = {
   sleepShowGrounding: "Leer texto de anclaje",
   sleepHideGrounding: "Ocultar texto de anclaje",
   sleepClose: "Cerrar",
+  sleepNotePrompt: "¿Algo que quieras anotar antes de cerrar?",
+  sleepNotePlaceholder: "Una línea es suficiente.",
+  sleepSaveClose: "Guardar y cerrar",
 
   proqolEyebrow: "Pantalla mensual de salud laboral",
   proqolTitle: "Un chequeo breve ProQOL",
@@ -147,6 +150,9 @@ export const es: Translations = {
   proqolClose: "Cerrar",
   proqolRouteToCheckIn: "Ir al cierre de turno",
   proqolComplete: "Anotado. Puedes cerrar aquí.",
+  proqolNotePrompt: "¿Alguna reflexión sobre lo que ves aquí?",
+  proqolNotePlaceholder: "Opcional.",
+  proqolSaveLogbook: "Guardar en el registro y cerrar",
   proqolFollowUp:
     "Hay señales de agotamiento o estrés traumático secundario. Si es seguro hacerlo, considera hablar con una supervisora, un supervisor o un profesional. También puedes llevar esto a un cierre de turno ahora.",
   proqolCSLabel: "Satisfacción por compasión",

@@ -139,6 +139,9 @@ export const fr: Translations = {
   sleepShowGrounding: "Lire le texte d'ancrage",
   sleepHideGrounding: "Masquer le texte d'ancrage",
   sleepClose: "Fermer",
+  sleepNotePrompt: "Quelque chose à noter avant de fermer ?",
+  sleepNotePlaceholder: "Une ligne suffit.",
+  sleepSaveClose: "Enregistrer et fermer",
 
   proqolEyebrow: "Bilan mensuel de santé au travail",
   proqolTitle: "Un court bilan ProQOL",
@@ -147,6 +150,9 @@ export const fr: Translations = {
   proqolClose: "Fermer",
   proqolRouteToCheckIn: "Aller au débrief",
   proqolComplete: "Noté. Vous pouvez fermer ici.",
+  proqolNotePrompt: "Des pensées sur ce que vous voyez ici ?",
+  proqolNotePlaceholder: "Facultatif.",
+  proqolSaveLogbook: "Enregistrer dans le carnet et fermer",
   proqolFollowUp:
     "Des signes d'épuisement ou de stress traumatique secondaire sont présents. Si c'est possible sans risque, envisagez d'en parler à un responsable ou à un professionnel. Vous pouvez aussi le ramener dans un débrief maintenant.",
   proqolCSLabel: "Satisfaction de compassion",

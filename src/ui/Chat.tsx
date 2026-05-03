@@ -93,6 +93,27 @@ export function Chat({
     void getLastProQOLTimestamp().then(setLastProQOLCompletedAt);
   }, []);
 
+  // Auto-save chat session to logbook when tab is closed or refreshed
+  useEffect(() => {
+    function handleBeforeUnload() {
+      const { turns } = useStore.getState();
+      if (turns.length === 0) return;
+      const firstUserText = turns.find((t) => t.role === "user")?.text ?? "";
+      const preview = firstUserText.length > 120
+        ? firstUserText.slice(0, 117) + "…"
+        : firstUserText;
+      saveLogbookEntry({
+        id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+        savedAt: Date.now(),
+        sessionType: "Offshift Check-In",
+        preview,
+        turns: turns.map((t) => ({ role: t.role, text: t.text, createdAt: t.createdAt }))
+      });
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [isStreaming, turns]);

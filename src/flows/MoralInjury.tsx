@@ -174,16 +174,30 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
       );
 
       const { text: visible, risk } = parseRiskTrailer(full);
-      setEntries((current) => [
-        ...current,
-        {
-          step: step.id,
-          prompt: currentPrompt,
-          answer,
-          reply: visible
-        }
-      ]);
+      const newEntries = [
+        ...entries,
+        { step: step.id, prompt: currentPrompt, answer, reply: visible }
+      ];
+      setEntries(newEntries);
       setAssistantText("");
+
+      // Auto-save to logbook on completion (step 5 of 5)
+      if (currentStep === 4 && !savedToLogbook) {
+        const firstAnswer = newEntries[0]?.answer ?? "";
+        const preview = firstAnswer.length > 120 ? firstAnswer.slice(0, 117) + "…" : firstAnswer;
+        const logTurns = newEntries.flatMap((e) => [
+          { role: "user" as const, text: `${e.prompt}\n\n${e.answer}`, createdAt: Date.now() },
+          { role: "assistant" as const, text: e.reply, createdAt: Date.now() }
+        ]);
+        saveLogbookEntry({
+          id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+          savedAt: Date.now(),
+          sessionType: "Moral Injury Walkthrough",
+          preview,
+          turns: logTurns
+        });
+        setSavedToLogbook(true);
+      }
 
       if (risk?.risk === "high" || risk?.recommend_crisis_line) {
         setCrisisUrgent(risk?.risk === "high");
@@ -262,39 +276,13 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
       {isComplete ? (
         <section className="panel space-y-4">
           <p className="text-sm leading-relaxed text-ink-200">{t(lang, "moralComplete")}</p>
+          {savedToLogbook ? (
+            <p className="text-xs text-accent-soft tracking-[0.1em]">Saved to Shadow Logbook.</p>
+          ) : null}
           <div className="flex flex-wrap gap-3">
             <button className="btn-primary" onClick={onRouteToCheckIn}>
               {t(lang, "moralRouteToCheckIn")}
             </button>
-            {savedToLogbook ? (
-              <span className="text-[11px] tracking-[0.12em] text-ink-500 self-center">
-                Saved to Shadow Logbook.
-              </span>
-            ) : (
-              <button
-                className="btn-ghost"
-                onClick={() => {
-                  const firstAnswer = entries[0]?.answer ?? "";
-                  const preview = firstAnswer.length > 120
-                    ? firstAnswer.slice(0, 117) + "…"
-                    : firstAnswer;
-                  const logTurns = entries.flatMap((entry) => [
-                    { role: "user" as const, text: `${entry.prompt}\n\n${entry.answer}`, createdAt: Date.now() },
-                    { role: "assistant" as const, text: entry.reply, createdAt: Date.now() }
-                  ]);
-                  saveLogbookEntry({
-                    id: Math.random().toString(36).slice(2) + Date.now().toString(36),
-                    savedAt: Date.now(),
-                    sessionType: "Moral Injury Walkthrough",
-                    preview,
-                    turns: logTurns,
-                  });
-                  setSavedToLogbook(true);
-                }}
-              >
-                Save to Logbook
-              </button>
-            )}
             <button className="btn-ghost" onClick={onBack}>
               {t(lang, "moralBackHome")}
             </button>

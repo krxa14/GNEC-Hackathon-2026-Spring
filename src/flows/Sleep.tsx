@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { hasThreeConsecutiveHardNights, saveSleepEntry } from "../storage/sleep";
+import { saveLogbookEntry } from "../storage/logbook";
 import { useStore } from "../store";
 import { t } from "../i18n";
 import { useDialogFocusTrap } from "../ui/useDialogFocusTrap";
@@ -18,6 +19,8 @@ export function Sleep({ open, onClose, onRouteToCheckIn }: SleepProps) {
   const [showGrounding, setShowGrounding] = useState(false);
   const [threeHardNights, setThreeHardNights] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [note, setNote] = useState("");
+  const [saved, setSaved] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const groundingLines = useMemo(
@@ -40,6 +43,35 @@ export function Sleep({ open, onClose, onRouteToCheckIn }: SleepProps) {
     const entries = await saveSleepEntry(rating);
     setThreeHardNights(rating <= 2 && hasThreeConsecutiveHardNights(entries));
     setIsSaving(false);
+  }
+
+  function saveAndClose() {
+    if (!selected) return;
+    const now = Date.now();
+    const acknowledgment = threeHardNights
+      ? t(lang, "sleepThreeHardNights")
+      : selected <= 2
+      ? t(lang, "sleepLowAcknowledgment")
+      : t(lang, "sleepAcknowledgment");
+    const turns: { role: "user" | "assistant"; text: string; createdAt: number }[] = [
+      { role: "user", text: `Sleep quality: ${selected}/5`, createdAt: now },
+      { role: "assistant", text: acknowledgment, createdAt: now }
+    ];
+    if (note.trim()) {
+      turns.push({ role: "user", text: note.trim(), createdAt: now });
+    }
+    const preview = note.trim()
+      ? note.trim().slice(0, 120)
+      : `Sleep quality: ${selected}/5`;
+    saveLogbookEntry({
+      id: Math.random().toString(36).slice(2) + now.toString(36),
+      savedAt: now,
+      sessionType: "Sleep Check-In",
+      preview,
+      turns
+    });
+    setSaved(true);
+    onClose();
   }
 
   return (
@@ -97,12 +129,26 @@ export function Sleep({ open, onClose, onRouteToCheckIn }: SleepProps) {
                 </p>
               )}
 
+              <div className="space-y-2">
+                <p className="text-xs text-ink-300">{t(lang, "sleepNotePrompt")}</p>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={2}
+                  placeholder={t(lang, "sleepNotePlaceholder")}
+                  className="w-full bg-transparent border border-ink-700 rounded-xl px-3 py-2 text-sm outline-none resize-none placeholder:text-ink-400"
+                />
+              </div>
+
               <div className="flex flex-wrap gap-3">
-                <button className="btn-ghost" onClick={() => setShowGrounding((value) => !value)}>
-                  {showGrounding ? t(lang, "sleepHideGrounding") : t(lang, "sleepShowGrounding")}
+                <button
+                  className="btn !px-4 !py-2 text-sm bg-ink-900 border border-accent/70 text-accent hover:border-accent hover:bg-ink-800"
+                  onClick={saveAndClose}
+                >
+                  {saved ? "Saved." : t(lang, "sleepSaveClose")}
                 </button>
-                <button className="btn-ghost" onClick={onClose}>
-                  {t(lang, "sleepClose")}
+                <button className="btn-ghost" onClick={() => setShowGrounding((v) => !v)}>
+                  {showGrounding ? t(lang, "sleepHideGrounding") : t(lang, "sleepShowGrounding")}
                 </button>
               </div>
             </div>

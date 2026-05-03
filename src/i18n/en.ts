@@ -135,6 +135,9 @@ export const en = {
   sleepShowGrounding: "Read grounding prompt",
   sleepHideGrounding: "Hide grounding prompt",
   sleepClose: "Close",
+  sleepNotePrompt: "Anything to note before you close?",
+  sleepNotePlaceholder: "One line is enough.",
+  sleepSaveClose: "Save & close",
 
   proqolEyebrow: "Monthly workforce health screen",
   proqolTitle: "A short ProQOL check",
@@ -143,6 +146,9 @@ export const en = {
   proqolClose: "Close",
   proqolRouteToCheckIn: "Go to offshift check-in",
   proqolComplete: "Noted. You can close this here.",
+  proqolNotePrompt: "Any thoughts on what you're seeing here?",
+  proqolNotePlaceholder: "Optional.",
+  proqolSaveLogbook: "Save to logbook & close",
   proqolFollowUp:
     "Burnout or secondary traumatic stress signals are present. If it is safe to do so, consider speaking with a supervisor or a professional. You can also take this back into an offshift check-in now.",
   proqolCSLabel: "Compassion satisfaction",

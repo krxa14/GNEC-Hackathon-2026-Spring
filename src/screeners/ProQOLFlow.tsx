@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { proqolItems, scoreProQOL, type ProQOLScore } from "./proqol";
 import { saveProQOLResult } from "../storage/proqol";
+import { saveLogbookEntry } from "../storage/logbook";
 import { useStore } from "../store";
 import { t } from "../i18n";
 import { useDialogFocusTrap } from "../ui/useDialogFocusTrap";
@@ -24,6 +25,8 @@ export function ProQOLFlow({
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState<ProQOLScore | null>(null);
+  const [note, setNote] = useState("");
+  const [logbookSaved, setLogbookSaved] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -31,6 +34,8 @@ export function ProQOLFlow({
       setAnswers({});
       setIndex(0);
       setScore(null);
+      setNote("");
+      setLogbookSaved(false);
     }
   }, [open]);
 
@@ -84,6 +89,29 @@ export function ProQOLFlow({
 
   const needsFollowUp = score ? score.BO >= 23 || score.STS >= 23 : false;
 
+  function saveToLogbook(scoreValue: ProQOLScore) {
+    const now = Date.now();
+    const scoreText = interpretation(scoreValue).join("\n");
+    const turns: { role: "user" | "assistant"; text: string; createdAt: number }[] = [
+      { role: "assistant", text: scoreText, createdAt: now }
+    ];
+    if (note.trim()) {
+      turns.push({ role: "user", text: note.trim(), createdAt: now });
+    }
+    const preview = note.trim()
+      ? note.trim().slice(0, 120)
+      : `CS: ${scoreValue.CS} · BO: ${scoreValue.BO} · STS: ${scoreValue.STS}`;
+    saveLogbookEntry({
+      id: Math.random().toString(36).slice(2) + now.toString(36),
+      savedAt: now,
+      sessionType: "ProQOL-5 Screen",
+      preview,
+      turns
+    });
+    setLogbookSaved(true);
+    onClose();
+  }
+
   return (
     <div
       role="dialog"
@@ -123,6 +151,17 @@ export function ProQOLFlow({
                 <p className="text-sm leading-relaxed text-ink-300">{t(lang, "proqolComplete")}</p>
               )}
 
+              <div className="space-y-2">
+                <p className="text-xs text-ink-300">{t(lang, "proqolNotePrompt")}</p>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={2}
+                  placeholder={t(lang, "proqolNotePlaceholder")}
+                  className="w-full bg-transparent border border-ink-700 rounded-xl px-3 py-2 text-sm outline-none resize-none placeholder:text-ink-400"
+                />
+              </div>
+
               <div className="flex flex-wrap gap-3">
                 {needsFollowUp ? (
                   <button
@@ -135,8 +174,12 @@ export function ProQOLFlow({
                     {t(lang, "proqolRouteToCheckIn")}
                   </button>
                 ) : null}
-                <button className="btn-ghost" onClick={onClose}>
-                  {t(lang, "proqolClose")}
+                <button
+                  className="btn !px-4 !py-2 text-sm bg-ink-900 border border-accent/70 text-accent hover:border-accent hover:bg-ink-800"
+                  onClick={() => saveToLogbook(score)}
+                  disabled={logbookSaved}
+                >
+                  {logbookSaved ? "Saved." : t(lang, "proqolSaveLogbook")}
                 </button>
               </div>
             </div>
