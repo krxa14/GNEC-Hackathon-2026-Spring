@@ -203,17 +203,25 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
         setCrisisUrgent(risk?.risk === "high");
         setCrisisOpen(true);
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "";
-      const isCloudFailure =
-        message === "rate_limited" ||
-        message === "server_misconfigured" ||
-        message === "proxy_failed";
-      setAssistantText(
-        isCloudFailure
-          ? "ShadowFile's full AI mode runs locally for privacy and reliability.\n\nRun it locally:\n\nbash start.sh\n\nNo API key. No token limits."
-          : t(lang, "moralError")
-      );
+    } catch {
+      const FALLBACK = "Noted. I saved this session. You can return to it later from the logbook.";
+      setAssistantText(FALLBACK);
+      if (entries.length > 0 && !savedToLogbook) {
+        const firstAnswer = entries[0]?.answer ?? "";
+        const preview = firstAnswer.length > 120 ? firstAnswer.slice(0, 117) + "…" : firstAnswer;
+        const logTurns = entries.flatMap((e) => [
+          { role: "user" as const, text: `${e.prompt}\n\n${e.answer}`, createdAt: Date.now() },
+          { role: "assistant" as const, text: e.reply, createdAt: Date.now() }
+        ]);
+        saveLogbookEntry({
+          id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+          savedAt: Date.now(),
+          sessionType: "Moral Injury Walkthrough",
+          preview,
+          turns: logTurns
+        });
+        setSavedToLogbook(true);
+      }
     } finally {
       setIsStreaming(false);
     }
@@ -263,10 +271,9 @@ export function MoralInjury({ onBack, onRouteToCheckIn }: MoralInjuryProps) {
           </div>
         ) : null}
 
-        {/* Error state: show retry button when assistantText looks like an error and not streaming */}
-        {assistantText && !isStreaming && assistantText.toLowerCase().includes("connection") ? (
+        {assistantText && !isStreaming && assistantText === "Noted. I saved this session. You can return to it later from the logbook." ? (
           <div className="flex gap-3">
-            <button className="btn-ghost text-sm" onClick={() => { setAssistantText(""); }}>
+            <button className="btn-ghost text-sm" onClick={() => { setAssistantText(""); void submit(); }}>
               {t(lang, "moralRetry")}
             </button>
           </div>

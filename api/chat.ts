@@ -92,6 +92,27 @@ This conversation is a structured moral-injury walkthrough.
 - One or two somber sentences are enough unless the user explicitly asks for more.
 - If the user says they still believe nothing, accept that without correction.`;
 
+const FALLBACK_REPLY = "Noted. I saved this session. You can return to it later from the logbook.";
+const FALLBACK_RISK = `<RISK>{"risk":"none","recommend_screen":"none","recommend_crisis_line":false,"rationale":"API unavailable"}`;
+
+function fallbackStream(): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(`${FALLBACK_REPLY}\n${FALLBACK_RISK}`));
+      controller.close();
+    }
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff"
+    }
+  });
+}
+
 // In-memory rate-limit bucket. Evaporates on cold start.
 const WINDOW_MS = 60_000;
 const buckets = new Map<string, { count: number; resetAt: number }>();
@@ -130,17 +151,8 @@ export default async function handler(req: Request): Promise<Response> {
   const ollamaBase = process.env.OLLAMA_BASE_URL?.replace(/\/$/, "");
 
   const apiKey = process.env.OPENROUTER_API_KEY ?? process.env.ANTHROPIC_API_KEY;
-  if (!ollamaBase && !apiKey) {
-    return new Response(
-      "No AI backend configured. Set OLLAMA_BASE_URL for local use or OPENROUTER_API_KEY for cloud.",
-      { status: 500 }
-    );
-  }
-  if (!ollamaBase && apiKey?.startsWith("sk-ant-")) {
-    return new Response("Anthropic keys are no longer supported here. Set OPENROUTER_API_KEY.", {
-      status: 500
-    });
-  }
+  if (!ollamaBase && !apiKey) return fallbackStream();
+  if (!ollamaBase && apiKey?.startsWith("sk-ant-")) return fallbackStream();
 
   const max = Number(process.env.RATE_LIMIT_RPM ?? "20");
   const key = rateLimitKey(req);
@@ -200,33 +212,31 @@ export default async function handler(req: Request): Promise<Response> {
   // OLLAMA_BASE_URL → fully local, no key, no rate limits (great for local dev)
   // OPENROUTER_API_KEY → cloud, tries candidateModels in order until one responds
   let upstreamResp: Response | null = null;
-  let lastErr = "";
+
+  const TIMEOUT_MS = 30_000;
 
   if (ollamaBase) {
-    // Local Ollama — single call, no fallback needed
-    // llama3.1:8b is the minimum recommended for reliable JSON output + instruction following.
-    // Low-spec machines (< 8 GB RAM) can set OLLAMA_MODEL=llama3.2 in .env.local.
     const ollamaModel = process.env.OLLAMA_MODEL ?? "llama3.1:8b";
+    const timeoutCtrl = new AbortController();
+    const timer = setTimeout(() => timeoutCtrl.abort(), TIMEOUT_MS);
     try {
       upstreamResp = await fetch(`${ollamaBase}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer ollama" },
         body: JSON.stringify({ model: ollamaModel, messages, stream: true, max_tokens: 800, temperature: 0.7 }),
-        signal: req.signal
+        signal: timeoutCtrl.signal
       });
-    } catch (err) {
-      lastErr = err instanceof Error ? err.message : "fetch failed";
+    } catch {
+      // Ollama unreachable — fall through to fallbackStream
+    } finally {
+      clearTimeout(timer);
     }
-    if (!upstreamResp) {
-      return new Response(
-        `Ollama unreachable at ${ollamaBase}. Is Ollama running? (ollama serve). ${lastErr}`,
-        { status: 502 }
-      );
-    }
+    if (!upstreamResp) return fallbackStream();
   } else {
-    // Cloud — try candidateModels in order, skip rate-limited / format-rejected ones
     const appOrigin = req.headers.get("origin") ?? new URL(req.url).origin;
     for (const model of candidateModels) {
+      const timeoutCtrl = new AbortController();
+      const timer = setTimeout(() => timeoutCtrl.abort(), TIMEOUT_MS);
       try {
         const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
@@ -237,28 +247,23 @@ export default async function handler(req: Request): Promise<Response> {
             "X-Title": "ShadowFile"
           },
           body: JSON.stringify({ model, messages, stream: true, max_tokens: 800, temperature: 0.7 }),
-          signal: req.signal
+          signal: timeoutCtrl.signal
         });
         if (resp.status === 429 || resp.status === 503 || resp.status === 400 || resp.status === 402) {
-          const snippet = await resp.clone().text().catch(() => "");
-          lastErr = `${model} → ${resp.status}: ${snippet.slice(0, 60)}`;
           continue;
         }
         upstreamResp = resp;
         break;
-      } catch (err) {
-        lastErr = err instanceof Error ? err.message : "fetch failed";
+      } catch {
+        // timed out or network error — try next model
+      } finally {
+        clearTimeout(timer);
       }
     }
-    if (!upstreamResp) {
-      return new Response(`All models rate-limited: ${lastErr.slice(0, 120)}`, { status: 503 });
-    }
+    if (!upstreamResp) return fallbackStream();
   }
 
-  if (!upstreamResp.ok || !upstreamResp.body) {
-    const errText = await upstreamResp.text().catch(() => "");
-    return new Response(`AI backend error ${upstreamResp.status}: ${errText.slice(0, 120)}`, { status: 502 });
-  }
+  if (!upstreamResp.ok || !upstreamResp.body) return fallbackStream();
 
   // Parse SSE and re-emit as plain text
   const stream = new ReadableStream<Uint8Array>({
@@ -295,9 +300,8 @@ export default async function handler(req: Request): Promise<Response> {
             }
           }
         }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "stream failed";
-        controller.enqueue(encoder.encode(`\n<ERROR>${msg.slice(0, 120)}</ERROR>`));
+      } catch {
+        controller.enqueue(encoder.encode(`\n${FALLBACK_REPLY}\n${FALLBACK_RISK}`));
       } finally {
         controller.close();
       }
