@@ -382,7 +382,7 @@ export function Chat({
               New session
             </button>
             <button
-              className="btn-ghost !px-4 !py-2 text-sm"
+              className="btn !px-4 !py-2 text-sm bg-ink-900 border border-accent/70 text-accent hover:border-accent hover:bg-ink-800"
               onClick={endAndSave}
               type="button"
               title="Save this session to Shadow Logbook and clear"
@@ -390,7 +390,7 @@ export function Chat({
               End &amp; save
             </button>
             {savedLabel ? (
-              <span className="text-xs text-ink-400 ml-1">{savedLabel}</span>
+              <span className="text-xs text-accent ml-1">{savedLabel}</span>
             ) : null}
             <button
               className="btn-primary ml-auto"
