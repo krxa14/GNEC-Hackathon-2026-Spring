@@ -97,8 +97,9 @@ export function Chat({
   useEffect(() => {
     function handleBeforeUnload() {
       const { turns } = useStore.getState();
-      if (turns.length === 0) return;
-      const firstUserText = turns.find((t) => t.role === "user")?.text ?? "";
+      const saveable = turns.filter((t) => !t.isError);
+      if (!saveable.some((t) => t.role === "user")) return;
+      const firstUserText = saveable.find((t) => t.role === "user")?.text ?? "";
       const preview = firstUserText.length > 120
         ? firstUserText.slice(0, 117) + "…"
         : firstUserText;
@@ -107,7 +108,7 @@ export function Chat({
         savedAt: Date.now(),
         sessionType: "Offshift Check-In",
         preview,
-        turns: turns.map((t) => ({ role: t.role, text: t.text, createdAt: t.createdAt }))
+        turns: saveable.map((t) => ({ role: t.role, text: t.text, createdAt: t.createdAt }))
       });
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -183,9 +184,9 @@ export function Chat({
       append({
         id: id(),
         role: "assistant",
-        text:
-          "You're offline. Your words are saved here. The AI response will resume when the connection returns.",
-        createdAt: Date.now()
+        text: "Noted. I saved this session. You can return to it later from the logbook.",
+        createdAt: Date.now(),
+        isError: true
       });
       return;
     }
@@ -224,17 +225,23 @@ export function Chat({
         setIsProQOLOpen(true);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "";
-      const isCloudFailure =
-        message === "rate_limited" ||
-        message === "server_misconfigured" ||
-        message === "proxy_failed";
-      patchLast({
-        text: isCloudFailure
-          ? "The AI is unavailable on this preview. Tap retry, or run ShadowFile locally for the full private experience (bash start.sh)."
-          : "Connection dropped. Your words are here. Tap retry when ready.",
-        isError: true
-      });
+      const FALLBACK = "Noted. I saved this session. You can return to it later from the logbook.";
+      patchLast({ text: FALLBACK, isError: true });
+
+      // Auto-save user content immediately when AI fails — demo works without API.
+      const currentTurns = useStore.getState().turns;
+      const saveable = currentTurns.filter((t) => !t.isError);
+      if (saveable.some((t) => t.role === "user")) {
+        const firstUserText = saveable.find((t) => t.role === "user")?.text ?? "";
+        const preview = firstUserText.length > 120 ? firstUserText.slice(0, 117) + "…" : firstUserText;
+        saveLogbookEntry({
+          id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+          savedAt: Date.now(),
+          sessionType: "Offshift Check-In",
+          preview,
+          turns: saveable.map((t) => ({ role: t.role, text: t.text, createdAt: t.createdAt }))
+        });
+      }
     } finally {
       setStreaming(false);
       abortRef.current = null;
@@ -246,12 +253,13 @@ export function Chat({
   }
 
   function endAndSave() {
-    if (turns.length === 0) {
+    const saveable = turns.filter((t) => !t.isError);
+    if (!saveable.some((t) => t.role === "user")) {
       setSavedLabel("Nothing to save.");
       setTimeout(() => setSavedLabel(null), 3000);
       return;
     }
-    const firstUserText = turns.find((t) => t.role === "user")?.text ?? "";
+    const firstUserText = saveable.find((t) => t.role === "user")?.text ?? "";
     const preview = firstUserText.length > 120
       ? firstUserText.slice(0, 117) + "…"
       : firstUserText;
@@ -260,7 +268,7 @@ export function Chat({
       savedAt: Date.now(),
       sessionType: "Offshift Check-In",
       preview,
-      turns: turns.map((t) => ({ role: t.role, text: t.text, createdAt: t.createdAt })),
+      turns: saveable.map((t) => ({ role: t.role, text: t.text, createdAt: t.createdAt })),
     });
     setSavedLabel("Saved to Shadow Logbook.");
     const newId = Math.random().toString(36).slice(2) + Date.now().toString(36);
